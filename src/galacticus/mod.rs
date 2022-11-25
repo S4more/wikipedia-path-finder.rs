@@ -1,10 +1,9 @@
 use lazy_static::lazy_static;
 use load_file::load_bytes;
-use std::sync::{Arc, atomic::Ordering::Relaxed, Mutex};
+use std::{sync::{Arc, atomic::Ordering::Relaxed, Mutex}, fs::File, io::Read, time::Instant, slice::SliceIndex};
 use rayon::prelude::*;
 
 use crate::node::page_node::Node;
-
 use std::sync::atomic::AtomicBool;
 
 pub struct Galacticus {
@@ -17,21 +16,34 @@ lazy_static! {
     static ref CURRENT_PATH: Arc<Mutex<Vec<usize>>> = Arc::new(Mutex::new(vec![]));
 }
 
-impl Galacticus {
-    pub fn build() -> Self {
+fn read_file(path: &String) -> Vec<u8> {
+    let mut f = File::open(path).unwrap();
+    let mut buffer = vec![0; f.metadata().unwrap().len() as usize];
 
-        let json = load_bytes!("../../ordered_titles/ordered_titles.json");
-        let titles : Vec<String> = serde_json::from_slice(json).unwrap();
+    f.read_exact(&mut buffer).unwrap();
+
+    buffer
+}
+
+impl Galacticus {
+    pub fn build(path_to_ordered_titles: &String, path_to_nodes: &String) -> Self {
+
+        println!("Reading file titles...");
+        let buffer = read_file(path_to_ordered_titles);
+        let titles : Vec<String> = serde_json::from_slice(&buffer).unwrap();
 
         let mut gal = Galacticus { nodes: vec![], ordered_titles: titles};
 
-        gal.create_nodes();
+        println!("Reading pages...");
+        gal.create_nodes(path_to_nodes);
+        println!("Ready to start!");
         gal
 
     }
 
     pub fn listen(&self, source: usize, destination: usize, max_hops: usize) -> Option<Vec<usize>>{
         let local_node = &self.nodes[source];
+        // println!("Source: {}, destination: {}", self.ordered_titles[source], self.ordered_titles[destination]);
         let found = self.handle_branch(&local_node, source, destination, max_hops, 0, Arc::new(AtomicBool::new(false)));
 
         match found {
@@ -45,9 +57,20 @@ impl Galacticus {
             let mut cur_path_or = CURRENT_PATH.lock().unwrap();
             let mut cur_path = cur_path_or.clone();
             cur_path_or.clear();
+            // cur_path.push(source);
             cur_path.reverse();
-            cur_path.push(destination);
+
+            if cur_path.len() - 2 > max_hops {
+                println!("Too big");
+                self.print_with_names(&cur_path);
+            }
+
             // self.print_with_names(&cur_path);
+            // self.print_with_names(&cur_path);
+            // if cur_path.len() > max_hops {
+            //     println!("{}", cur_path.len());
+            // }
+
             Some(cur_path)
         } else {
             None
@@ -85,19 +108,40 @@ impl Galacticus {
             return None;
         }
 
+        if current_hop >= max_hops {
+            return None;
+        }
+
         //... comment
         if node.id == destination {
             // println!("0. {} - ", node.id);
             return Some(node.id);
         }
 
-        if current_hop + 1 == max_hops {
-            if node.has_neighbour(&destination) {
-                CURRENT_PATH.lock().unwrap().push(node.id);
-                return Some(node.id);
-            }  else {
-                return None;
+        if node.has_neighbour(&destination) && !should_stop.load(Relaxed) {
+            match CURRENT_PATH.try_lock() {
+                Ok(mut lock) => {
+                    match lock.get(0) {
+                        Some(val) => 
+                            if val == &destination {
+                                return None;
+                            },
+                        None => {},
+                    }
+                    lock.push(destination);
+                    lock.push(node.id);
+                    should_stop.store(true, Relaxed);
+                    return Some(node.id);
+                },
+                Err(_) => return None,
             }
+            //     unwrap().push(node.id);
+            // should_stop.store(true, Relaxed);
+            // return Some(node.id);
+        }
+
+        if current_hop + 1 == max_hops {
+            return None;
         }
         
         // Will happen only once
@@ -124,10 +168,6 @@ impl Galacticus {
             }
         }
 
-        if current_hop >= max_hops {
-            return None;
-        }
-
         for node_id in &node.neighbours  {
             let next_node = &self.nodes[*node_id];
             let result = self.handle_branch(&next_node, source, destination, max_hops, current_hop + 1, should_stop.clone());
@@ -142,34 +182,23 @@ impl Galacticus {
         return None;
     }
 
-    fn create_nodes(&mut self) {
-        let dummy_json = load_bytes!("../../test_links.json");
-        let v: Vec<Vec<usize>> = serde_json::from_slice(dummy_json).unwrap();
+    fn create_nodes(&mut self, path_to_nodes: &String) {
+        let now = Instant::now();
+        let buffer = read_file(path_to_nodes);
+        let mut v: Vec<Vec<usize>> = serde_json::from_slice(&buffer).unwrap();
+        println!("Took {:?}", now.elapsed());
 
-        let mut index = 0;
+        let now = Instant::now();
+        println!("Creating nodes...");
 
-        for _ in v.as_slice() {
-            let node = Node::new(index, vec![]);
-            self.nodes.push(node);
-            index += 1;
-        }
+        v.par_iter_mut()
+            .enumerate()
+            .map(|(index, neighbours)| {
+                // neighbours.sort();
+                Node::new(index, neighbours.clone())
+            }).collect_into_vec(&mut self.nodes);
 
-        // Add neighbours 
-        index = 0;
-        let size = v.len();
-        for mut val in v {
-            val.sort();
-            for i in val {
-                // just for testing. not needed on final json
-                if i >= size {
-                    continue;
-                }
-
-                let node = self.nodes[i].id;
-                self.nodes[index].add_neighbour(node);
-            }
-            index += 1;
-        }
+        println!("Took: {:?}", now.elapsed());
 
 
     }
