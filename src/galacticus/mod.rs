@@ -1,113 +1,145 @@
-use kanal::{Sender, bounded};
+use lazy_static::lazy_static;
 use load_file::load_bytes;
-use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
-use threadpool::Builder; 
+use std::sync::{Arc, atomic::Ordering::Relaxed, Mutex};
+use rayon::prelude::*;
 
 use crate::node::page_node::Node;
-use crate::message::{MessageOutEvent};
+
+use std::sync::atomic::AtomicBool;
 
 pub struct Galacticus {
     // The index of the node will be equivalent to it's id 
     pub nodes: Vec<Node>,
+    pub ordered_titles: Vec<String>,
+}
+
+lazy_static! {
+    static ref CURRENT_PATH: Arc<Mutex<Vec<usize>>> = Arc::new(Mutex::new(vec![]));
 }
 
 impl Galacticus {
     pub fn build() -> Self {
-        let mut gal = Galacticus { nodes: vec![] };
+
+        let json = load_bytes!("../../ordered_titles/ordered_titles.json");
+        let titles : Vec<String> = serde_json::from_slice(json).unwrap();
+
+        let mut gal = Galacticus { nodes: vec![], ordered_titles: titles};
+
         gal.create_nodes();
         gal
 
     }
 
-    pub fn start(&self, destination: usize, sender: Sender<Arc<MessageOutEvent>>) {
-        self.nodes[0].receive_message(&MessageOutEvent { from: 0, to: 0, path: Vec::with_capacity(7), destination, max_hops: 7}, sender);
+    pub fn listen(&self, source: usize, destination: usize, max_hops: usize) -> Option<Vec<usize>>{
+        let local_node = &self.nodes[source];
+        let found = self.handle_branch(&local_node, source, destination, max_hops, 0, Arc::new(AtomicBool::new(false)));
+
+        match found {
+            // Some(expr) => println!("Found path to: {}", read_lock.ordered_titles[destination]),
+            None => self.log(source, destination),
+            _ => {},
+        }
+
+
+        if found.is_some() {
+            let mut cur_path_or = CURRENT_PATH.lock().unwrap();
+            let mut cur_path = cur_path_or.clone();
+            cur_path_or.clear();
+            cur_path.reverse();
+            cur_path.push(destination);
+            // self.print_with_names(&cur_path);
+            Some(cur_path)
+        } else {
+            None
+        }
+        // return succes;
     }
 
-    pub fn listen(galacticus: Arc<RwLock<Galacticus>> ,destination: usize) -> bool {
-        let pool = Builder::new()
-            .thread_stack_size(1_000_000)
-            .num_threads(6)
-            .build();
-        let binding = galacticus.clone();
+    fn print_with_names(&self, vec: &Vec<usize>) {
+        for l in vec {
+            print!("({}, {}) - ", self.ordered_titles[*l], l)
+        }
+        println!("");
+    }
 
+    fn log(&self, source: usize, destination: usize) {
+        println!("Couldn't find path from {}  to: {}", self.ordered_titles[source], self.ordered_titles[destination]);
+        // println!("The source has the following neighbours: ");
+        //
+        // for node in &self.nodes[source].neighbours {
+        //     println!("{}", self.ordered_titles[*node]);
+        // }
 
-        let mut total_missed = 0;
-        let mut total_messages = 0;
-        let mut last_decent_message = Instant::now();
-        let mut has_arrived = false;
+    }
 
-        let wait_delay = Duration::from_millis(100);
+    pub fn handle_branch(&self, 
+                         node: &Node,
+                         source: usize,
+                         destination: usize,
+                         max_hops: usize,
+                         current_hop: usize,
+                         should_stop: Arc<AtomicBool>
+                         ) -> Option<usize>{
 
-        let (sender, receiver) = bounded::<Arc<MessageOutEvent>>(1000);
+        if should_stop.load(Relaxed) {
+            return None;
+        }
 
-        let clone = sender.clone();
-        pool.execute(move ||
-        {
-            println!("Locking read.");
-            let lock = binding.read().unwrap();
-            println!("Locked read.");
-            lock.start(destination, clone);
-            println!("Unlocking read.");
-        });
+        //... comment
+        if node.id == destination {
+            // println!("0. {} - ", node.id);
+            return Some(node.id);
+        }
 
-
-        let succes = loop {
-            total_messages += 1;
-            // if total_messages == 1_000_000 {
-            //     println!("Total messages: {}. Took {:?} ms", total_messages, start.elapsed());
-            //     break;
-            // }
-
-            let result = receiver.recv().unwrap();
-            // println!("Received message");
-            // thread::sleep(Duration::from_millis(1));
-
-            if last_decent_message.elapsed() > wait_delay {
-                println!("Current {}: Couldn't find any path.", destination);
-                break false;
+        if current_hop + 1 == max_hops {
+            if node.has_neighbour(&destination) {
+                CURRENT_PATH.lock().unwrap().push(node.id);
+                return Some(node.id);
+            }  else {
+                return None;
             }
+        }
+        
+        // Will happen only once
+        if current_hop + 3 == max_hops {
 
-            // drop the message if different iteration
-            // Advance to the next iteration
-            if result.destination != destination {
-                continue;
+            let found = node.neighbours
+                .par_iter()
+                .find_any(|n| {
+                    let should_stop = should_stop.clone();
+                    let should_stop2 = should_stop.clone();
+
+                    let node = &self.nodes[**n];
+                    if self.handle_branch(&node, source, destination, max_hops, current_hop + 1, should_stop).is_some() {
+                        should_stop2.store(true, Relaxed);
+                        return true;
+                    }
+
+                    false
+                });
+
+            match found {
+                Some(val) => return Some(*val),
+                None => return None,
             }
+        }
 
-            if has_arrived {
-                break true;
+        if current_hop >= max_hops {
+            return None;
+        }
+
+        for node_id in &node.neighbours  {
+            let next_node = &self.nodes[*node_id];
+            let result = self.handle_branch(&next_node, source, destination, max_hops, current_hop + 1, should_stop.clone());
+            if result.is_some() {
+                // println!("{} -> {} -> ",  node.id, next_node.id);
+                // println!("[{}-{}]: This should be the last one: {}", current_hop, node.id, result.unwrap());
+                CURRENT_PATH.lock().unwrap().push(node.id);
+                return result;
             }
+        }
 
-            if result.to == result.destination {
-                println!("Dest: {} -  {:?}", result.destination, result.path);
-                // println!(" Total messages: {}. Took {:?} ms", total_messages, start.elapsed());
-                has_arrived = true;
-                continue
-            }
-
-            last_decent_message = Instant::now();
-
-
-
-            let clone = galacticus.clone();
-
-            let sender = sender.clone();
-            pool.execute(move || {
-                // println!("{}", thread::c);
-                // let sender_id = result.path.last().unwrap();
-                let a = clone.read().unwrap();
-                a.nodes[result.to].receive_message(&result, sender);
-            });
-
-        };
-
-
-        receiver.close();
-        println!("Joining...");
-        pool.join();
-        println!("Joined...");
-
-        return succes;
+        return None;
     }
 
     fn create_nodes(&mut self) {
@@ -115,6 +147,7 @@ impl Galacticus {
         let v: Vec<Vec<usize>> = serde_json::from_slice(dummy_json).unwrap();
 
         let mut index = 0;
+
         for _ in v.as_slice() {
             let node = Node::new(index, vec![]);
             self.nodes.push(node);
@@ -124,7 +157,8 @@ impl Galacticus {
         // Add neighbours 
         index = 0;
         let size = v.len();
-        for val in v {
+        for mut val in v {
+            val.sort();
             for i in val {
                 // just for testing. not needed on final json
                 if i >= size {
@@ -136,5 +170,7 @@ impl Galacticus {
             }
             index += 1;
         }
+
+
     }
 }

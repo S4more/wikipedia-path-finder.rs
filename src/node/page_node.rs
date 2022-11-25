@@ -6,7 +6,7 @@ use crate::message::{MessageOutEvent};
 
 pub struct Node {
     pub id: usize,
-    neighbours: Vec<usize>,
+    pub neighbours: Vec<usize>,
 }
 
 impl Node {
@@ -22,6 +22,16 @@ impl Node {
         //     println!("[{}] adding neighbour {}", self.id, neighbour);
         // }
         self.neighbours.push(neighbour);
+    }
+
+    pub fn has_neighbour(&self, id: &usize) -> bool {
+        for neighbour_id in &self.neighbours {
+            if neighbour_id == id {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // pub fn receive_message(&self, mut message: &MessageOutEvent, sender: Sender<Arc<MessageOutEvent>>) {

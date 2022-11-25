@@ -1,8 +1,9 @@
-use std::sync::{Arc, Mutex, RwLock};
+use std::time::Instant;
 
 use crate::galacticus::Galacticus;
 
 use lazy_static::lazy_static;
+use rayon::ThreadPoolBuilder;
 
 mod node;
 mod galacticus;
@@ -13,23 +14,37 @@ lazy_static! {
 }
 
 fn main() {
+    ThreadPoolBuilder::new().num_threads(16).build_global().unwrap();
 
-    let mut current = 1;
     let mut missed = 0;
-    let galacticus: Arc<RwLock<Galacticus>> = Arc::new(RwLock::new(Galacticus::build()));
+    let galacticus: Galacticus = Galacticus::build();
 
-    while current < 236 {
-        let clone = galacticus.clone();
-        // lock.start(current);
-        // let gal = Arc::clone(&GALACTICUS);
-        // let has_found = lock.listen(current);
-        let has_found = Galacticus::listen(clone, current);
+    let now = Instant::now();
 
-        if !has_found {
-            missed += 1;
+    // for i in 1..250_000  {
+    //     let result = galacticus.listen(0, i, 8);
+    //     if result.is_none() {
+    //         missed += 1;
+    //     }
+    // }
+
+    println!("Missed: {}", missed);
+
+    for i in 0..100 {
+        let now = Instant::now();
+        for j in 0..100 {
+            if i == j || galacticus.nodes[i].neighbours.len() == 0 {
+                continue;
+            }
+            // let clone = galacticus.clone();
+            let has_found = galacticus.listen(i, j, 7);
+            if has_found.is_none() {
+                missed += 1;
+                println!("Missed.");
+            }
         }
-
-        current += 1;
+        println!("Found: {}. Took: {:?}", i, now.elapsed());
     }
-
+    println!("Took: {:?}", now.elapsed());
+    // println!("Took: {:?}", now.elapsed());
 }
