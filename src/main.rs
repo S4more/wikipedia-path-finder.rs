@@ -85,16 +85,19 @@ fn one_shot(args: Arguments) {
     let now = Instant::now();
 
     let should_stop = Arc::new(AtomicBool::new(false));
-    let found = galacticus.listen(args.from.unwrap(), args.destination.unwrap(), args.number_of_hops.unwrap(), should_stop, Duration::from_secs(60 * 60 * 10));
+    let found = galacticus.listen(
+        args.from.unwrap(),
+        args.destination.unwrap(),
+        args.number_of_hops.unwrap(),
+        should_stop,
+        Duration::from_secs(60 * 60 * 10)
+        );
 
     match found {
         Some(path) => println!("path: {:?}", path),
         None => println!("Couldn't find it."),
     }
 
-    // print!("Total elapsed: {:?}. Missed: {}", now.elapsed(), missed);
-    //
-    // println!("Missed: {:?}", missed);
     println!("Took: {:?}", now.elapsed());
 }
 
@@ -104,9 +107,12 @@ fn handle_range(args: Arguments) {
     let mut missed = 0;
     let now = Instant::now();
 
-    let mut current_percentage = Instant::now();
+    // let mut current_percentage = Instant::now();
     for i in 0..100 {
         for j in 0..100 {
+            if i == j || galacticus.nodes[i].neighbours.len() == 0 {
+                continue;
+            }
             let should_stop = Arc::new(AtomicBool::new(false));
             let found = galacticus.listen(i, j, 7, should_stop, Duration::from_secs(10));
 

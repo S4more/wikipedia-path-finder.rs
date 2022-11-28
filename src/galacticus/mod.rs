@@ -42,7 +42,14 @@ impl Galacticus {
     }
 
     pub fn listen(&self, source: usize, destination: usize, max_hops: usize, should_stop: Arc<AtomicBool>, timeout: Duration) -> Option<Vec<usize>>{
+
         let local_node = &self.nodes[source];
+
+        if local_node.neighbours.len() == 0 {
+            println!("No neighbours. Can't do");
+            return None;
+        }
+
         let found = self.handle_branch(&local_node, source, destination, max_hops, 0, should_stop, usize::MAX, &timeout, &Instant::now());
 
         match found {
