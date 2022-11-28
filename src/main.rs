@@ -1,22 +1,32 @@
-use std::{time::{Instant, Duration}, path::PathBuf, sync::{Arc, Mutex, atomic::AtomicBool}};
+use std::{time::{Instant, Duration}, sync::{Arc, atomic::AtomicBool}};
 
 use crate::galacticus::Galacticus;
 
-use lazy_static::lazy_static;
 use rayon::ThreadPoolBuilder;
 
 mod node;
 mod galacticus;
 mod message;
 
-use clap::{Parser, Command};
-use rocket::{self, get, launch, routes, State};
-use tokio::{time::sleep, runtime::Runtime};
+use clap::Parser;
+use rocket::{self, get, routes, State};
 
 struct MyState {
     galacticus: Galacticus,
 }
 
+#[derive(clap::ValueEnum, Clone, Debug)]
+enum Mode {
+    OneShot,
+    Range,
+    Server,
+}
+
+impl Default for Mode {
+    fn default() -> Self {
+        Mode::Server
+    }
+}
 
 #[derive(Parser, Default, Debug)]
 struct Arguments {
@@ -27,7 +37,7 @@ struct Arguments {
     page_relation: String,
 
     #[clap(short, long)]
-    one_shot: Option<bool>,
+    mode: Mode,
 
     #[clap(short, long)]
     from: Option<usize>,
@@ -50,45 +60,61 @@ fn index(from: usize, to: usize, hops: u8, state: &State<MyState>) -> String {
     }
 }
 
+async fn handle_server(args: Arguments) {
+    let gal = Galacticus::build(&args.titles, &args.page_relation);
+    let gal_state = MyState { galacticus: gal } ;
+    let _ = rocket::build().mount("/", routes![index]).manage(gal_state).launch().await.unwrap();
+}
+
 #[rocket::main]
 async fn main() {
     println!("here.");
     let args = Arguments::parse();
     ThreadPoolBuilder::new().num_threads(16).build_global().unwrap();
 
-    if args.one_shot.is_some() {
-        handle_one_shot(args);
-        return;
-    }
-
-    println!("{:?}", args);
-
-    let gal = Galacticus::build(&args.titles, &args.page_relation);
-    let gal_state = MyState { galacticus: gal } ;
-
-    let _ = rocket::build().mount("/", routes![index]).manage(gal_state).launch().await.unwrap();
+    match args.mode {
+        Mode::OneShot => one_shot(args),
+        Mode::Range => handle_range(args),
+        Mode::Server => handle_server(args).await,
+    };
 }
 
-fn handle_one_shot(args: Arguments) {
+fn one_shot(args: Arguments) {
     let galacticus: Galacticus = Galacticus::build(&args.titles, &args.page_relation);
 
-    
+    let now = Instant::now();
+
+    let should_stop = Arc::new(AtomicBool::new(false));
+    let found = galacticus.listen(args.from.unwrap(), args.destination.unwrap(), args.number_of_hops.unwrap(), should_stop, Duration::from_secs(60 * 60 * 10));
+
+    match found {
+        Some(path) => println!("path: {:?}", path),
+        None => println!("Couldn't find it."),
+    }
+
+    // print!("Total elapsed: {:?}. Missed: {}", now.elapsed(), missed);
+    //
+    // println!("Missed: {:?}", missed);
+    println!("Took: {:?}", now.elapsed());
+}
+
+fn handle_range(args: Arguments) {
+    let galacticus: Galacticus = Galacticus::build(&args.titles, &args.page_relation);
+
     let mut missed = 0;
     let now = Instant::now();
 
     let mut current_percentage = Instant::now();
-    for i in 25000..250_000 {
-        let should_stop = Arc::new(AtomicBool::new(false));
-        let found = galacticus.listen(0, i, 7, should_stop, Duration::from_secs(10));
+    for i in 0..100 {
+        for j in 0..100 {
+            let should_stop = Arc::new(AtomicBool::new(false));
+            let found = galacticus.listen(i, j, 7, should_stop, Duration::from_secs(10));
 
-        if found.is_none() {
-            missed += 1;
-            println!("Missed @ {}", i);
-        }
+            if found.is_none() {
+                missed += 1;
+                println!("Missed @ {}-{}", i, j);
+            }
 
-        if i % 2500 == 0 {
-            println!("{}% done. Current percentage time: {:?} Total Time: {:?}", (i / 2500) + 1, current_percentage.elapsed(), now.elapsed());
-            current_percentage = Instant::now();
         }
     }
     print!("Total elapsed: {:?}. Missed: {}", now.elapsed(), missed);
