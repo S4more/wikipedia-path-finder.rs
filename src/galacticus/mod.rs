@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
 use load_file::load_bytes;
-use std::{sync::{Arc, atomic::Ordering::Relaxed, Mutex}, fs::File, io::Read, time::Instant, slice::SliceIndex};
+use std::{sync::{Arc, atomic::Ordering::Relaxed, Mutex}, fs::File, io::Read, time::{Instant, Duration}, slice::SliceIndex};
 use rayon::prelude::*;
 
 use crate::node::page_node::Node;
@@ -41,13 +41,11 @@ impl Galacticus {
 
     }
 
-    pub fn listen(&self, source: usize, destination: usize, max_hops: usize) -> Option<Vec<usize>>{
+    pub fn listen(&self, source: usize, destination: usize, max_hops: usize, should_stop: Arc<AtomicBool>, timeout: Duration) -> Option<Vec<usize>>{
         let local_node = &self.nodes[source];
-        // println!("Source: {}, destination: {}", self.ordered_titles[source], self.ordered_titles[destination]);
-        let found = self.handle_branch(&local_node, source, destination, max_hops, 0, Arc::new(AtomicBool::new(false)));
+        let found = self.handle_branch(&local_node, source, destination, max_hops, 0, should_stop, usize::MAX, &timeout, &Instant::now());
 
         match found {
-            // Some(expr) => println!("Found path to: {}", read_lock.ordered_titles[destination]),
             None => self.log(source, destination),
             _ => {},
         }
@@ -101,12 +99,20 @@ impl Galacticus {
                          destination: usize,
                          max_hops: usize,
                          current_hop: usize,
-                         should_stop: Arc<AtomicBool>
+                         should_stop: Arc<AtomicBool>,
+                         from: usize,
+                         duration: &Duration,
+                         instant: &Instant,
                          ) -> Option<usize>{
 
         if should_stop.load(Relaxed) {
             return None;
         }
+
+        if instant.elapsed() > *duration {
+            should_stop.store(true, Relaxed);
+        }
+
 
         if current_hop >= max_hops {
             return None;
@@ -153,8 +159,12 @@ impl Galacticus {
                     let should_stop = should_stop.clone();
                     let should_stop2 = should_stop.clone();
 
-                    let node = &self.nodes[**n];
-                    if self.handle_branch(&node, source, destination, max_hops, current_hop + 1, should_stop).is_some() {
+                    if n == &&source || n == &&from {
+                        return false;
+                    }
+
+                    let new_node = &self.nodes[**n];
+                    if self.handle_branch(&new_node, source, destination, max_hops, current_hop + 1, should_stop, node.id, duration, instant).is_some() {
                         should_stop2.store(true, Relaxed);
                         return true;
                     }
@@ -170,7 +180,7 @@ impl Galacticus {
 
         for node_id in &node.neighbours  {
             let next_node = &self.nodes[*node_id];
-            let result = self.handle_branch(&next_node, source, destination, max_hops, current_hop + 1, should_stop.clone());
+            let result = self.handle_branch(&next_node, source, destination, max_hops, current_hop + 1, should_stop.clone(), node.id, duration, instant);
             if result.is_some() {
                 // println!("{} -> {} -> ",  node.id, next_node.id);
                 // println!("[{}-{}]: This should be the last one: {}", current_hop, node.id, result.unwrap());
@@ -194,7 +204,7 @@ impl Galacticus {
         v.par_iter_mut()
             .enumerate()
             .map(|(index, neighbours)| {
-                // neighbours.sort();
+                neighbours.sort();
                 Node::new(index, neighbours.clone())
             }).collect_into_vec(&mut self.nodes);
 

@@ -1,4 +1,4 @@
-use std::{time::Instant, path::PathBuf};
+use std::{time::{Instant, Duration}, path::PathBuf, sync::{Arc, Mutex, atomic::AtomicBool}};
 
 use crate::galacticus::Galacticus;
 
@@ -10,10 +10,13 @@ mod galacticus;
 mod message;
 
 use clap::{Parser, Command};
+use rocket::{self, get, launch, routes, State};
+use tokio::{time::sleep, runtime::Runtime};
 
-lazy_static! {
-    // static ref GALACTICUS: Arc<RwLock<Galacticus>> = Arc::new(RwLock::new(Galacticus::build()));
+struct MyState {
+    galacticus: Galacticus,
 }
+
 
 #[derive(Parser, Default, Debug)]
 struct Arguments {
@@ -36,40 +39,61 @@ struct Arguments {
     number_of_hops: Option<usize>,
 }
 
-fn main() {
+#[get("/<from>/<to>/<hops>")]
+fn index(from: usize, to: usize, hops: u8, state: &State<MyState>) -> String {
+    let atomic = Arc::new(AtomicBool::new(false));
+    let result = state.galacticus.listen(from, to, hops.into(), atomic.clone(), Duration::from_secs(10));
+
+    match result {
+        Some(path) => format!("{:?}", path),
+        None => "Couldn't find it".to_string(),
+    }
+}
+
+#[rocket::main]
+async fn main() {
+    println!("here.");
     let args = Arguments::parse();
+    ThreadPoolBuilder::new().num_threads(16).build_global().unwrap();
+
+    if args.one_shot.is_some() {
+        handle_one_shot(args);
+        return;
+    }
 
     println!("{:?}", args);
 
-    ThreadPoolBuilder::new().num_threads(16).build_global().unwrap();
+    let gal = Galacticus::build(&args.titles, &args.page_relation);
+    let gal_state = MyState { galacticus: gal } ;
 
-    let mut missed = 0;
+    let _ = rocket::build().mount("/", routes![index]).manage(gal_state).launch().await.unwrap();
+}
+
+fn handle_one_shot(args: Arguments) {
     let galacticus: Galacticus = Galacticus::build(&args.titles, &args.page_relation);
 
+    
+    let mut missed = 0;
     let now = Instant::now();
-    println!("{}", galacticus.ordered_titles[37971]);
 
-    for i in 0..1 {
-        let now = Instant::now();
-        for j in 37971..100_000 {
-            if i == j || galacticus.nodes[i].neighbours.len() == 0 {
-                continue;
-            }
-            // let clone = galacticus.clone();
-            let mut found;
-            for depth in 7..20 {
-                found = galacticus.listen(i, j, depth);
-                if found.is_some() {
-                    break;
-                } else {
-                    println!("Couldn't find. Increasing depth to {}", depth + 1);
-                }
-            }
-            println!("Found: {}. Took: {:?}", j, now.elapsed());
+    let mut current_percentage = Instant::now();
+    for i in 25000..250_000 {
+        let should_stop = Arc::new(AtomicBool::new(false));
+        let found = galacticus.listen(0, i, 7, should_stop, Duration::from_secs(10));
+
+        if found.is_none() {
+            missed += 1;
+            println!("Missed @ {}", i);
         }
-        println!("Found: {}. Took: {:?}", i, now.elapsed());
+
+        if i % 2500 == 0 {
+            println!("{}% done. Current percentage time: {:?} Total Time: {:?}", (i / 2500) + 1, current_percentage.elapsed(), now.elapsed());
+            current_percentage = Instant::now();
+        }
     }
+    print!("Total elapsed: {:?}. Missed: {}", now.elapsed(), missed);
+
     println!("Missed: {:?}", missed);
     println!("Took: {:?}", now.elapsed());
-    // println!("Took: {:?}", now.elapsed());
+
 }
