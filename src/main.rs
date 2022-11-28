@@ -90,7 +90,7 @@ fn one_shot(args: Arguments) {
         args.destination.unwrap(),
         args.number_of_hops.unwrap(),
         should_stop,
-        Duration::from_secs(60 * 60 * 10)
+        Duration::from_secs(10),
         );
 
     match found {
@@ -114,7 +114,7 @@ fn handle_range(args: Arguments) {
                 continue;
             }
             let should_stop = Arc::new(AtomicBool::new(false));
-            let found = galacticus.listen(i, j, 7, should_stop, Duration::from_secs(10));
+            let found = galacticus.listen(i, j, 6, should_stop, Duration::from_secs(10));
 
             if found.is_none() {
                 missed += 1;

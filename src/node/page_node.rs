@@ -25,13 +25,7 @@ impl Node {
     }
 
     pub fn has_neighbour(&self, id: &usize) -> bool {
-        for neighbour_id in &self.neighbours {
-            if neighbour_id == id {
-                return true;
-            }
-        }
-
-        return false;
+        return self.neighbours.contains(id);
     }
 
     // pub fn receive_message(&self, mut message: &MessageOutEvent, sender: Sender<Arc<MessageOutEvent>>) {

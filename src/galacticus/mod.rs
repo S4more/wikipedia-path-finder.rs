@@ -1,3 +1,4 @@
+use crossbeam::atomic::AtomicConsume;
 use lazy_static::lazy_static;
 use load_file::load_bytes;
 use std::{sync::{Arc, atomic::Ordering::Relaxed, Mutex}, fs::File, io::Read, time::{Instant, Duration}, slice::SliceIndex};
@@ -37,8 +38,8 @@ impl Galacticus {
         println!("Reading pages...");
         gal.create_nodes(path_to_nodes);
         println!("Ready to start!");
-        gal
 
+        gal
     }
 
     pub fn listen(&self, source: usize, destination: usize, max_hops: usize, should_stop: Arc<AtomicBool>, timeout: Duration) -> Option<Vec<usize>>{
@@ -50,37 +51,68 @@ impl Galacticus {
             return None;
         }
 
-        let found = self.handle_branch(&local_node, source, destination, max_hops, 0, should_stop, usize::MAX, &timeout, &Instant::now());
+        let instant = Instant::now();
+        let found = self.handle_branch(&local_node, source, destination, max_hops, 0, should_stop, usize::MAX, &timeout, &instant);
 
         match found {
             None => self.log(source, destination),
             _ => {},
         }
 
-
         if found.is_some() {
-            let mut cur_path_or = CURRENT_PATH.lock().unwrap();
-            let mut cur_path = cur_path_or.clone();
-            cur_path_or.clear();
-            // cur_path.push(source);
-            cur_path.reverse();
+            let cur_path = self.get_and_clear_path();
 
             if cur_path.len() - 2 > max_hops {
                 println!("Too big");
                 self.print_with_names(&cur_path);
             }
-
-            // self.print_with_names(&cur_path);
-            // self.print_with_names(&cur_path);
-            // if cur_path.len() > max_hops {
-            //     println!("{}", cur_path.len());
-            // }
-
             Some(cur_path)
         } else {
+            println!("Starting reverse_lookup.");
+            if instant.elapsed() > timeout {
+                return self.reverse_lookup(local_node, destination, max_hops, timeout);
+            }
             None
         }
-        // return succes;
+    }
+
+    pub fn reverse_lookup(&self, local_node: &Node, destination: usize, max_hops: usize, timeout: Duration) -> Option<Vec<usize>>{
+        let reverse_size = 2;
+        let in_the_way_nodes = self.get_neighbours_with_distance_of(&self.nodes[destination], reverse_size);
+
+        for node in in_the_way_nodes {
+            let should_stop = Arc::new(AtomicBool::new(false));
+            let now = Instant::now();
+            let found = self.handle_branch(local_node, local_node.id, node.id, max_hops - reverse_size, 0, should_stop, usize::MAX, &timeout, &now);
+
+            if found.is_some() {
+                let should_stop = Arc::new(AtomicBool::new(false));
+                let mut first_half = self.get_and_clear_path();
+                let found = self.handle_branch(node, node.id, destination, reverse_size + 1, 0, should_stop, usize::MAX, &timeout, &now);
+
+                if found.is_some() {
+                    let mut second_half = self.get_and_clear_path();
+                    first_half.append(&mut second_half);
+                    self.print_with_names(&first_half);
+                    return Some(first_half);
+                }
+
+            }
+            println!("Going for the next.");
+            let mut cur_path_or = CURRENT_PATH.lock().unwrap();
+            cur_path_or.clear();
+        }
+
+        return None
+    }
+
+    fn get_and_clear_path(&self) -> Vec<usize> {
+        let mut cur_path_or = CURRENT_PATH.lock().unwrap();
+        let mut cur_path = cur_path_or.clone();
+        cur_path_or.clear();
+        cur_path.reverse();
+        // self.print_with_names(&cur_path);
+        return cur_path;
     }
 
     fn print_with_names(&self, vec: &Vec<usize>) {
@@ -92,12 +124,6 @@ impl Galacticus {
 
     fn log(&self, source: usize, destination: usize) {
         println!("Couldn't find path from {}  to: {}", self.ordered_titles[source], self.ordered_titles[destination]);
-        // println!("The source has the following neighbours: ");
-        //
-        // for node in &self.nodes[source].neighbours {
-        //     println!("{}", self.ordered_titles[*node]);
-        // }
-
     }
 
     pub fn handle_branch(&self, 
@@ -216,7 +242,35 @@ impl Galacticus {
             }).collect_into_vec(&mut self.nodes);
 
         println!("Took: {:?}", now.elapsed());
+    }
 
+    fn get_neighbours_with_distance_of<'a>(&'a self, node: &'a Node, distance: usize) -> Vec<&'a Node> {
+        let now = Instant::now();
+        let mut neighbours = vec![node];
+        for _ in 0..distance {
+            let local_neighbours: Vec<&Node> = neighbours 
+                .par_iter()
+                .map(|n| {
+                    return self.get_neighbours(n)
+                })
+                .flat_map(|a| a)
+                .collect();
+                
+            neighbours = local_neighbours;
+        }
+        println!("Took: {:?}", now.elapsed());
+        return neighbours;
+    }
 
+    fn get_neighbours(&self, node: &Node) -> Vec<&Node> {
+        let neighbours: Vec<&Node> = self.nodes
+            .iter()
+            .filter(|n| {
+                return n.has_neighbour(&node.id)
+            }).collect();
+
+        // vec.append();
+
+        return neighbours;
     }
 }
