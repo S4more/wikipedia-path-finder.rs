@@ -1,7 +1,5 @@
-use crossbeam::atomic::AtomicConsume;
 use lazy_static::lazy_static;
-use load_file::load_bytes;
-use std::{sync::{Arc, atomic::Ordering::Relaxed, Mutex}, fs::File, io::Read, time::{Instant, Duration}, slice::SliceIndex};
+use std::{sync::{Arc, atomic::Ordering::Relaxed, Mutex}, fs::File, io::Read, time::{Instant, Duration}};
 use rayon::prelude::*;
 
 use crate::node::page_node::Node;
@@ -77,7 +75,7 @@ impl Galacticus {
     }
 
     pub fn reverse_lookup(&self, local_node: &Node, destination: usize, max_hops: usize, timeout: Duration) -> Option<Vec<usize>>{
-        let reverse_size = 2;
+        let reverse_size = 1;
         let in_the_way_nodes = self.get_neighbours_with_distance_of(&self.nodes[destination], reverse_size);
 
         for node in in_the_way_nodes {

@@ -68,7 +68,6 @@ async fn handle_server(args: Arguments) {
 
 #[rocket::main]
 async fn main() {
-    println!("here.");
     let args = Arguments::parse();
     ThreadPoolBuilder::new().num_threads(16).build_global().unwrap();
 
