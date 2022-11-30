@@ -1,17 +1,17 @@
 pub struct Node {
-    pub id: usize,
-    pub neighbours: Vec<usize>,
+    pub id: u32,
+    pub neighbours: Vec<u32>,
 }
 
 impl Node {
-    pub fn new(id: usize, neighbours: Vec<usize>) -> Self {
+    pub fn new(id: u32, neighbours: Vec<u32>) -> Self {
         Node {
             id,
             neighbours,
         }
     }
 
-    pub fn has_neighbour(&self, id: &usize) -> bool {
+    pub fn has_neighbour(&self, id: &u32) -> bool {
         return self.neighbours.contains(id);
     }
 }

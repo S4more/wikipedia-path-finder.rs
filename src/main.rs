@@ -40,17 +40,17 @@ struct Arguments {
     mode: Mode,
 
     #[clap(short, long)]
-    from: Option<usize>,
+    from: Option<u32>,
 
     #[clap(short, long)]
-    destination: Option<usize>,
+    destination: Option<u32>,
 
     #[clap(short, long)]
-    number_of_hops: Option<usize>,
+    number_of_hops: Option<u32>,
 }
 
 #[get("/<from>/<to>/<hops>")]
-fn index(from: usize, to: usize, hops: u8, state: &State<MyState>) -> String {
+fn index(from: u32, to: u32, hops: u8, state: &State<MyState>) -> String {
     let atomic = Arc::new(AtomicBool::new(false));
     let result = state.galacticus.listen(from, to, hops.into(), atomic.clone(), Duration::from_secs(10));
 
@@ -113,7 +113,7 @@ fn handle_range(args: Arguments) {
                 continue;
             }
             let should_stop = Arc::new(AtomicBool::new(false));
-            let found = galacticus.listen(i, j, 6, should_stop, Duration::from_secs(10));
+            let found = galacticus.listen(i as u32, j as u32, 6, should_stop, Duration::from_secs(10));
 
             if found.is_none() {
                 missed += 1;
