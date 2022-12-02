@@ -1,13 +1,9 @@
 mod utils;
 mod wiki_node;
 use bevy::prelude::*;
-use bevy::window::WindowDescriptor;
-use bevy::window::WindowPlugin;
+use bevy::window::{WindowDescriptor, WindowPlugin, WindowResized};
 use wasm_bindgen::prelude::*;
-use wiki_node::add_nodes;
-use wiki_node::sprite_position_update;
-use wiki_node::step_nodes;
-use wiki_node::PhysicsObject;
+use wiki_node::{add_nodes, sprite_position_update, step_nodes};
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
 // allocator.
@@ -26,13 +22,12 @@ pub fn greet() {
 }
 
 #[wasm_bindgen]
-pub fn bevy() {
+pub fn bevy(canvas: &str) {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             window: WindowDescriptor {
-                canvas: Some("#nodes".to_string()),
-                width: 640.0,
-                height: 400.0,
+                canvas: Some(canvas.to_string()),
+                fit_canvas_to_parent: true,
                 ..default()
             },
             ..default()
