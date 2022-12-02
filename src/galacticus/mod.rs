@@ -5,6 +5,8 @@ use rayon::prelude::*;
 use crate::node::page_node::Node;
 use std::sync::atomic::AtomicBool;
 
+use itertools::Itertools;
+
 pub struct Galacticus {
     // The index of the node will be equivalent to it's id 
     pub nodes: Vec<Node>,
@@ -25,16 +27,17 @@ fn read_file(path: &String) -> Vec<u8> {
 }
 
 impl Galacticus {
-    pub fn build(path_to_ordered_titles: &String, path_to_nodes: &String) -> Self {
+    pub fn build(path_to_ordered_titles: &String, path_to_nodes: &String, path_to_incoming_nodes: &String) -> Self {
 
         println!("Reading file titles...");
         let buffer = read_file(path_to_ordered_titles);
         let titles : Vec<String> = serde_json::from_slice(&buffer).unwrap();
 
-        let mut gal = Galacticus { nodes: vec![], ordered_titles: titles};
+
+        let mut gal = Galacticus { nodes: vec![], ordered_titles: titles };
 
         println!("Reading pages...");
-        gal.create_nodes(path_to_nodes);
+        gal.create_nodes(path_to_nodes, path_to_incoming_nodes);
         println!("Ready to start!");
 
         gal
@@ -50,12 +53,13 @@ impl Galacticus {
         }
 
         let instant = Instant::now();
+
         let found = self.handle_branch(&local_node, source, destination, max_hops, 0, should_stop, u32::MAX, &timeout, &instant);
 
-        match found {
-            None => self.log(source, destination),
-            _ => {},
-        }
+        // match found {
+        //     None => self.log(source, destination),
+        //     _ => {},
+        // }
 
         if found.is_some() {
             let cur_path = self.get_and_clear_path();
@@ -66,7 +70,7 @@ impl Galacticus {
             }
             Some(cur_path)
         } else {
-            println!("Starting reverse_lookup.");
+            // println!("Starting reverse_lookup.");
             if instant.elapsed() > timeout {
                 return self.reverse_lookup(local_node, destination, max_hops, timeout);
             }
@@ -75,25 +79,31 @@ impl Galacticus {
     }
 
     pub fn reverse_lookup(&self, local_node: &Node, destination: u32, max_hops: u32, timeout: Duration) -> Option<Vec<u32>>{
-        let reverse_size = 1;
+        let reverse_size = 2;
         let in_the_way_nodes = self.get_neighbours_with_distance_of(&self.nodes[destination as usize], reverse_size);
 
         for node in in_the_way_nodes {
             let should_stop = Arc::new(AtomicBool::new(false));
             let now = Instant::now();
-            let found = self.handle_branch(local_node, local_node.id, node.id, max_hops - reverse_size, 0, should_stop, u32::MAX, &timeout, &now);
+            let found = self.handle_branch(local_node, local_node.id, node.id, max_hops - reverse_size, 0, should_stop, u32::MAX, &Duration::from_millis(25), &now);
 
             if found.is_some() {
                 let should_stop = Arc::new(AtomicBool::new(false));
                 let mut first_half = self.get_and_clear_path();
-                let found = self.handle_branch(node, node.id, destination, reverse_size + 1, 0, should_stop, u32::MAX, &timeout, &now);
+                let found = self.handle_branch(node, node.id, destination, reverse_size + 1, 0, should_stop, u32::MAX, &Duration::from_millis(100), &now);
 
                 if found.is_some() {
                     let mut second_half = self.get_and_clear_path();
+
+                    if reverse_size + 1 < 3 {
+                        second_half.pop();
+                    }
+
                     first_half.append(&mut second_half);
-                    self.print_with_names(&first_half);
+                    // self.print_with_names(&first_half);
                     return Some(first_half);
                 }
+                println!("Couldn't find shorter path.");
 
             }
             println!("Going for the next.");
@@ -121,7 +131,7 @@ impl Galacticus {
     }
 
     fn log(&self, source: u32, destination: u32) {
-        println!("Couldn't find path from {}  to: {}", self.ordered_titles[source as usize], self.ordered_titles[destination as usize]);
+        println!("Couldn't find path from {}  to: {}({})", self.ordered_titles[source as usize], self.ordered_titles[destination as usize], destination);
     }
 
     pub fn handle_branch(&self, 
@@ -213,8 +223,6 @@ impl Galacticus {
             let next_node = &self.nodes[*node_id as usize];
             let result = self.handle_branch(&next_node, source, destination, max_hops, current_hop + 1, should_stop.clone(), node.id, duration, instant);
             if result.is_some() {
-                // println!("{} -> {} -> ",  node.id, next_node.id);
-                // println!("[{}-{}]: This should be the last one: {}", current_hop, node.id, result.unwrap());
                 CURRENT_PATH.lock().unwrap().push(node.id);
                 return result;
             }
@@ -223,20 +231,34 @@ impl Galacticus {
         return None;
     }
 
-    fn create_nodes(&mut self, path_to_nodes: &String) {
+    fn create_nodes(&mut self, path_to_nodes: &String, path_to_incoming_nodes: &String) {
         let now = Instant::now();
         let buffer = read_file(path_to_nodes);
+
         let mut v: Vec<Vec<u32>> = serde_json::from_slice(&buffer).unwrap();
+        let buffer = read_file(path_to_incoming_nodes);
+        let mut incoming_nodes: Vec<Vec<u32>> = serde_json::from_slice(&buffer).unwrap();
+
         println!("Took {:?}", now.elapsed());
 
         let now = Instant::now();
         println!("Creating nodes...");
 
         v.par_iter_mut()
+            .zip(incoming_nodes.par_iter_mut())
             .enumerate()
-            .map(|(index, neighbours)| {
+            .map(|(index, (neighbours, incoming))| {
                 neighbours.sort();
-                Node::new(index as u32, neighbours.clone())
+                let ordered_neighbours = neighbours.clone();
+                neighbours.shrink_to_fit();
+                let r = Node::new(index as u32, ordered_neighbours, incoming.clone());
+
+                incoming.clear();
+                incoming.shrink_to_fit();
+                neighbours.clear();
+                neighbours.shrink_to_fit();
+
+                r
             }).collect_into_vec(&mut self.nodes);
 
         println!("Took: {:?}", now.elapsed());
@@ -246,29 +268,21 @@ impl Galacticus {
         let now = Instant::now();
         let mut neighbours = vec![node];
         for _ in 0..distance {
-            let local_neighbours: Vec<&Node> = neighbours 
+            let local_neighbours = neighbours
                 .par_iter()
                 .map(|n| {
-                    return self.get_neighbours(n)
+                    n.incoming_neighbours
+                        .iter()
+                        .map(|incoming| &self.nodes[*incoming as usize])
+                        .collect()
                 })
-                .flat_map(|a| a)
+                .flat_map(|a: Vec<&Node> | a)
                 .collect();
-                
+
             neighbours = local_neighbours;
         }
-        println!("Took: {:?}", now.elapsed());
-        return neighbours;
-    }
-
-    fn get_neighbours(&self, node: &Node) -> Vec<&Node> {
-        let neighbours: Vec<&Node> = self.nodes
-            .iter()
-            .filter(|n| {
-                return n.has_neighbour(&node.id)
-            }).collect();
-
-        // vec.append();
-
-        return neighbours;
+        neighbours.sort_by(|a, b| a.id.partial_cmp(&b.id).unwrap());
+        // println!("Took: {:?}", now.elapsed());
+        return neighbours.into_iter().unique_by(|n| n.id).collect_vec();
     }
 }

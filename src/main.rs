@@ -37,6 +37,9 @@ struct Arguments {
     page_relation: String,
 
     #[clap(short, long)]
+    incoming_neighbours: String,
+
+    #[clap(short, long)]
     mode: Mode,
 
     #[clap(short, long)]
@@ -61,7 +64,7 @@ fn index(from: u32, to: u32, hops: u8, state: &State<MyState>) -> String {
 }
 
 async fn handle_server(args: Arguments) {
-    let gal = Galacticus::build(&args.titles, &args.page_relation);
+    let gal = Galacticus::build(&args.titles, &args.page_relation, &args.incoming_neighbours);
     let gal_state = MyState { galacticus: gal } ;
     let _ = rocket::build().mount("/", routes![index]).manage(gal_state).launch().await.unwrap();
 }
@@ -79,7 +82,7 @@ async fn main() {
 }
 
 fn one_shot(args: Arguments) {
-    let galacticus: Galacticus = Galacticus::build(&args.titles, &args.page_relation);
+    let galacticus: Galacticus = Galacticus::build(&args.titles, &args.page_relation, &args.incoming_neighbours);
 
     let now = Instant::now();
 
@@ -89,7 +92,7 @@ fn one_shot(args: Arguments) {
         args.destination.unwrap(),
         args.number_of_hops.unwrap(),
         should_stop,
-        Duration::from_secs(10),
+        Duration::from_millis(0),
         );
 
     match found {
@@ -101,26 +104,29 @@ fn one_shot(args: Arguments) {
 }
 
 fn handle_range(args: Arguments) {
-    let galacticus: Galacticus = Galacticus::build(&args.titles, &args.page_relation);
+    let galacticus: Galacticus = Galacticus::build(&args.titles, &args.page_relation, &args.incoming_neighbours);
 
     let mut missed = 0;
     let now = Instant::now();
 
     // let mut current_percentage = Instant::now();
-    for i in 0..100 {
-        for j in 0..100 {
+    for i in 0..1 {
+        let now = Instant::now();
+        for j in 800_000..900_000 {
             if i == j || galacticus.nodes[i].neighbours.len() == 0 {
                 continue;
             }
+            let now = Instant::now();
             let should_stop = Arc::new(AtomicBool::new(false));
-            let found = galacticus.listen(i as u32, j as u32, 6, should_stop, Duration::from_secs(10));
+            let found = galacticus.listen(i as u32, j as u32, 6, should_stop, Duration::from_millis(10));
 
             if found.is_none() {
                 missed += 1;
                 println!("Missed @ {}-{}", i, j);
             }
-
+            println!("{} {:?}", j, now.elapsed());
         }
+        println!("Moved to {} iteration. Took: {:?}", i, now.elapsed());
     }
     print!("Total elapsed: {:?}. Missed: {}", now.elapsed(), missed);
 
