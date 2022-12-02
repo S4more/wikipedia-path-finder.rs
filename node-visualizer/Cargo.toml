@@ -1,0 +1,39 @@
+
+[package]
+name = "node-visualizer"
+version = "0.1.0"
+authors = ["Noah Labrecque <noah.labrecque@gmail.com>"]
+edition = "2021"
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["console_error_panic_hook"]
+
+[dependencies]
+rand = "0.8.5"
+console_error_panic_hook = { version = "0.1.6", optional = true }
+wasm-bindgen = "0.2.69"
+bevy = { version = "0.9.1", default-features = true, features = [
+    "bevy_gltf",
+    "render",
+    "png",
+] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+bevy = { version = "0.9.1", default-features = true, features = [
+    "bevy_gltf",
+    "bevy_winit",
+    "render",
+    "png",
+] }
+wee_alloc = { version = "0.4.5", optional = true }
+getrandom = { version = "0.2", features = ["wasm-bindgen"] }
+
+
+[profile.release]
+opt-level = 3
+
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
