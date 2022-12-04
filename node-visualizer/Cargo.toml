@@ -19,6 +19,7 @@ bevy = { version = "0.9.1", default-features = true, features = [
     "render",
     "png",
 ] }
+bevy_diagnostic = "0.9.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 bevy = { version = "0.9.1", default-features = true, features = [
