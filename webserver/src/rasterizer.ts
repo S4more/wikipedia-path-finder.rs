@@ -9,23 +9,35 @@ export default class Rasterizer {
         this.ctx = this.canvas.getContext("2d");
     }
 
+    reset() {
+        this.ctx.globalCompositeOperation = "overlay"
+        this.ctx.restore();
+        this.ctx.clearRect(0, 0, this.res, this.res);
+    }
+
+    clip() {
+        this.ctx.globalCompositeOperation = 'destination-in';
+        this.ctx.fillStyle = "#fff";
+        this.ctx.beginPath();
+        this.ctx.arc(this.res / 2, this.res / 2, this.res / 2, 0, 2 * Math.PI, true);
+        this.ctx.closePath();
+        this.ctx.fill();
+    }
+
     // Renders a given image from a url, and returns a base64 encoded version
     public async rasterize(url: string): Promise<Buffer> {
-        return new Promise((res, rej) => {
-            // loadImage(url).then(img => {
-            let start = performance.now();
-            this.ctx.clearRect(0, 0, this.res, this.res);
-            this.ctx.beginPath();
-            this.ctx.fillStyle = "#" + `${((Math.random() * 0xFFF) | 0).toString(16)}`.padStart(3, "0");
-
-            this.ctx.ellipse(this.res / 2, this.res / 2, this.res / 2, this.res / 2, 0, 0, 360);
-            this.ctx.closePath();
-            this.ctx.fill();
-
-            // this.ctx.drawImage(img, 0, 0, this.res, this.res);
-            res(this.canvas.toBuffer());
-            console.log(performance.now() - start);
-            // }).catch(rej);
-        })
+        let img;
+        try {
+            img = await loadImage(url);
+        } catch (e) {
+            console.log(e);
+        }
+        if (img) {
+            this.reset();
+            this.ctx.drawImage(img, 0, 0, this.res, this.res);
+            this.clip();
+            return this.canvas.toBuffer();
+        }
+        return new Buffer("");
     }
 }

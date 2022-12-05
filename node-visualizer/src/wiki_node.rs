@@ -1,29 +1,81 @@
 use bevy::prelude::*;
 use rand::random;
 
-use crate::hash_grid::HashGrid;
+use crate::{connection::create_connection, hash_grid::HashGrid};
 #[derive(Component, Default)]
 pub struct PhysicsObject {
     pub last_position: Vec2,
     pub current_position: Vec2,
 }
+
 pub struct WikiNode {
     title: String,
 }
 
-pub fn spawn_nodes(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn((
+#[derive(Resource)]
+pub struct SpawnInterval {
+    elapsed_seconds: f32,
+    pub threshold_seconds: f32,
+}
+impl SpawnInterval {
+    pub fn should_spawn(&mut self, elapsed: f32) -> bool {
+        self.elapsed_seconds += elapsed;
+        if self.elapsed_seconds >= self.threshold_seconds {
+            self.elapsed_seconds -= self.threshold_seconds;
+            return true;
+        } else {
+            return false;
+        }
+    }
+    pub fn new(interval: f32) -> Self {
+        Self {
+            elapsed_seconds: 0.0,
+            threshold_seconds: interval,
+        }
+    }
+}
+
+pub fn spawn_nodes(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    time: Res<Time>,
+    mut spawn_interval: ResMut<SpawnInterval>,
+    nodes: Query<(&PhysicsObject, Entity)>,
+) {
+    if spawn_interval.should_spawn(time.delta_seconds()) {
+        let nodes: Vec<(&PhysicsObject, Entity)> = nodes.into_iter().collect();
+        let index = random::<usize>() % nodes.len();
+
+        let (node_pos, node_id) = nodes[index];
+
+        let new_id = commands
+            .spawn(create_node(
+                asset_server.load(format!("/random/{}.png", random::<u32>())),
+                node_pos.current_position,
+            ))
+            .id();
+
+        commands.spawn(create_connection(node_id, new_id));
+    }
+}
+
+pub fn create_node(texture: Handle<Image>, position: Vec2) -> (PhysicsObject, SpriteBundle) {
+    (
         PhysicsObject {
-            last_position: Vec2::new(0.0, 0.0),
-            current_position: Vec2::new(rand::random::<f32>() - 0.5, rand::random::<f32>() - 0.5)
-                * 5.0,
+            last_position: position.clone(),
+            current_position: position
+                + Vec2::new(rand::random::<f32>() - 0.5, rand::random::<f32>() - 0.5) * 2.0,
         },
         SpriteBundle {
-            transform: Transform::from_xyz(0., 0., 0.),
-            texture: asset_server.load(format!("/random/{}.png", random::<u32>())),
+            transform: Transform::from_xyz(0., 0., 1.),
+            texture,
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(23., 23.)),
+                ..default()
+            },
             ..default()
         },
-    ));
+    )
 }
 
 pub fn sprite_position_update(mut query: Query<(&PhysicsObject, &mut Transform)>) {
