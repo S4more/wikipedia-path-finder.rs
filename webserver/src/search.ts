@@ -1,7 +1,10 @@
 import { Server, Socket } from 'socket.io';
-import { create, insert, remove, search } from "@lyrasearch/lyra";
+import { create, insert, insertBatch, remove, search } from "@lyrasearch/lyra";
 
 
+type Schema = {
+    title: string
+}
 export default class SearchManager {
     private readonly db = create({
         defaultLanguage: "english",
@@ -28,9 +31,7 @@ export default class SearchManager {
         console.log(io);
     }
 
-    insert(...items: string[]) {
-        for (let item of items) {
-            insert(this.db, { title: item });
-        }
+    insert(items: Schema[]) {
+        insertBatch(this.db, items, { language: 'english', batchSize: 100 });
     }
 }
