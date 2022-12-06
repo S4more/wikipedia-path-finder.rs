@@ -1,12 +1,14 @@
-import NodeVisualizer from './components/node-visualizer'
+import LabeledInput from './components/inputs/labeled-input'
+import BaseInput from './components/inputs/base-input'
+import IconArrowRight from './components/icons/icon-arrow-right'
 
 function App() {
   return (
     <div className="App">
-      <div>
-        <h1>Hello World!</h1>
-        <NodeVisualizer id='nodes' />
-      </div>
+      <form action="#" method="POST">
+        <BaseInput type='text' />
+        <LabeledInput type='text' id={'test'}>Text Input</LabeledInput>
+      </form>
     </div>
   )
 }

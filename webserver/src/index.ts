@@ -1,12 +1,23 @@
 import express from 'express';
 import Rasterizer from './rasterizer';
 import Wikipedia from './wikipedia';
+import { Server } from 'socket.io';
+import { createServer } from 'http';
+import SearchManager from './search';
+import loadIndexes from './title-index-loader';
 
 const app = express();
 const port = 8080;
+const httpServer = createServer(app)
 
-const rasterizer = new Rasterizer(256);
-let img = "";
+const socketServer = new Server(httpServer);
+
+const searchManager = new SearchManager();
+searchManager.attachIo(socketServer);
+
+loadIndexes(searchManager, 100_000);
+
+const rasterizer = new Rasterizer(32);
 let requests = 0;
 app.get("/random/*", async (req, res) => {
     Wikipedia.getRandomArticle().then(title => {
@@ -14,7 +25,6 @@ app.get("/random/*", async (req, res) => {
             rasterizer.rasterize(img).then(img => {
                 res.send(img);
                 requests++;
-                console.log(requests);
             });
         })
     }).catch(e => {
@@ -37,6 +47,4 @@ app.get("/wiki/random", async (req, res) => {
 
 app.use(express.static("../wiki-webapp/dist"));
 
-app.listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}`);
-});
+httpServer.listen(port);
