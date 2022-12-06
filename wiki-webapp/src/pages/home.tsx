@@ -1,6 +1,7 @@
 import BaseInput from "../components/inputs/base-input";
 import ButtonBase from "../components/inputs/button";
 import ButtonSubmit from "../components/inputs/button-submit";
+import TitleSelector from "../components/title-selector";
 
 export default function Example() {
     return <>
@@ -12,6 +13,7 @@ export default function Example() {
                     </h2>
                 </div>
                 <form className="mt-8 space-y-6" action="#" method="POST">
+                    <TitleSelector />
                     <BaseInput type="text" required placeholder="From" />
                     <BaseInput type="text" required placeholder="To" />
                     <div className="flex">

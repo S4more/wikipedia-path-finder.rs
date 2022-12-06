@@ -4,9 +4,15 @@ module.exports = {
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
-    extend: {},
+    extend: {
+      transitionProperty: {
+        'spacing': 'height, margin',
+      }
+    },
   },
   plugins: [
     require('@tailwindcss/forms'),
+    require('tailwind-scrollbar')({ nocompatible: true }),
   ],
 }
+
