@@ -1,5 +1,5 @@
-import { MouseEventHandler, PropsWithChildren, useEffect, useRef, useState } from "react"
-
+import { PropsWithChildren, useEffect, useRef, useState } from "react"
+import io from 'socket.io-client';
 export interface TitleSelectorProps {
 
 }
@@ -25,15 +25,31 @@ function TitleSelectorItem(props: PropsWithChildren<TitleSelectorItemProps>): JS
         ref={item_ref}
         onClick={click}
         tabIndex={props.isOpen ? undefined : -1}
-        className="flex text-sm px-3 py-2 hover:bg-blue-200 focus:bg-blue-200 focus:outline-none bg-white" >
+        className="text-sm px-3 py-2 h-[36px] hover:bg-blue-200 focus:bg-blue-200 focus:outline-none w-full bg-white overflow-ellipsis text-start" >
         {props.title}
     </button>
 }
 
+const socket = io();
 export default function TitleSelector(props: TitleSelectorProps) {
     const [isOpen, setOpen] = useState(false);
     const [inputText, setInputText] = useState("");
-    const [dropHeight, setDropHeight] = useState("0");
+    const [dropHeight, setDropHeight] = useState(0);
+
+    useEffect(() => {
+        socket.on('query-result', (data) => {
+            setSuggestedTitles(data);
+        });
+
+        return () => {
+            socket.off('query-result');
+        };
+    }, []);
+
+    useEffect(() => {
+        console.log("searching");
+        socket?.emit("query", inputText);
+    }, [inputText])
 
     const doFocus = () => {
         open();
@@ -47,29 +63,23 @@ export default function TitleSelector(props: TitleSelectorProps) {
 
     let timeout = 0;
 
-    const [suggestedTitles, setSuggestedTitles] = useState([
-        "Securitas depot robbery",
-        "Tonbridge",
-        "Tonbridge and Malling",
-        "Malling Abbey",
-        "Curzon Park Abbey",
-        "List of monastic houses in Cheshire"
-    ]);
+    const [suggestedTitles, setSuggestedTitles] = useState([]);
 
     const selectItem = (title: string) => {
         setInputText(title);
+        close();
     }
 
     const close = () => {
         clearTimeout(timeout);
-        setDropHeight("0");
+        setDropHeight(0);
         setOpen(false);
     }
 
     const open = () => {
         clearTimeout(timeout);
         setOpen(true);
-        setDropHeight("10");
+        setDropHeight(2.1);
     }
 
     return <div
@@ -81,7 +91,7 @@ export default function TitleSelector(props: TitleSelectorProps) {
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                className={`block w-full ${isOpen ? "rounded-t-md" : "rounded-md"} focus:ring-0 border-none sm:text-sm`}
+                className={`block w-full ${isOpen && suggestedTitles.length > 0 ? "rounded-t-md" : "rounded-md"} focus:ring-0 border-none sm:text-sm`}
             />
 
             <span className="-ml-8 h-6 flex justify-center pointer-events-none">
@@ -92,8 +102,9 @@ export default function TitleSelector(props: TitleSelectorProps) {
         </span>
 
         <div style={{
-            height: `${dropHeight}em`,
-        }} className={`transition-spacing rounded-b-md overflow-y-scroll flex flex-col cursor-pointer absolute w-full ring-1 outline-1 ${isOpen ? "ring-gray-300" : "ring-transparent"}  ` + style_thinScroll}>
+            overflow: "hidden",
+            height: `${suggestedTitles.length * (isOpen ? 36 : 0)}px`,
+        }} className={`transition-spacing rounded-b-md flex flex-col overflow-hidden cursor-pointer absolute w-full ring-1 outline-1 ${isOpen && suggestedTitles.length > 0 ? "ring-gray-300" : "ring-transparent"}  ` + style_thinScroll}>
             {
                 suggestedTitles.map(
                     (title: string) => <TitleSelectorItem isOpen={isOpen} key={title} onSelect={selectItem} title={title} />

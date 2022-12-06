@@ -1,12 +1,27 @@
 import express from 'express';
 import Rasterizer from './rasterizer';
 import Wikipedia from './wikipedia';
+import { Server } from 'socket.io';
+import { createServer } from 'http';
+import SearchManager from './search';
 
 const app = express();
 const port = 8080;
+const httpServer = createServer(app)
+
+const socketServer = new Server(httpServer);
+
+const searchManager = new SearchManager();
+console.log(searchManager);
+searchManager.attachIo(socketServer);
+
+// Add to the searcher
+// TODO Change this
+setInterval(() => {
+    Wikipedia.getRandomArticle().then(title => searchManager.insert(title)).catch(console.log);
+}, 50);
 
 const rasterizer = new Rasterizer(256);
-let img = "";
 let requests = 0;
 app.get("/random/*", async (req, res) => {
     Wikipedia.getRandomArticle().then(title => {
@@ -37,6 +52,4 @@ app.get("/wiki/random", async (req, res) => {
 
 app.use(express.static("../wiki-webapp/dist"));
 
-app.listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}`);
-});
+httpServer.listen(port);
