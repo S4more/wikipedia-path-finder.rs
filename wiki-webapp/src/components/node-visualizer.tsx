@@ -1,7 +1,7 @@
 import WasmLoader from "../util/wasm-loader";
-import { useEffect, useState } from "react";
+import { useEffect, useState, PropsWithoutRef } from "react";
 
-function NodeVisualizer({ id }: { id: string }) {
+function NodeVisualizer(props: PropsWithoutRef<{ id: string, className: string }>) {
     const [width, setWidth] = useState(window.innerWidth);
 
     window.addEventListener("resize", () => {
@@ -10,17 +10,13 @@ function NodeVisualizer({ id }: { id: string }) {
 
     useEffect(() => {
         WasmLoader.loadWasm().then(wasm => {
-            wasm.bevy(`#${id}`)
+            wasm.bevy(`#${props.id}`)
         });
     }, []);
 
     return (
-        <div className="bg-gray-50">
-            <div className="mx-auto max-w-7xl py-12 px-4 sm:px-6 lg:flex lg:items-center lg:justify-between lg:py-16 lg:px-8">
-                <div className="mt-8 flex lg:mt-0 lg:flex-shrink-0">
-                    <canvas id={id} width={width}></canvas>
-                </div>
-            </div>
+        <div className="w-screen h-screen absolute top-0 left-0">
+            <canvas {...props} ></canvas>
         </div>
     )
 }

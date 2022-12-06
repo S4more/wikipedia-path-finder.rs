@@ -1,4 +1,6 @@
-export default () => <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-</svg>;
-
+export default (props: any) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" fill="none" strokeLinecap="round" strokeLinejoin="round">
+    <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+    <line x1="12" y1="5" x2="12" y2="19"></line>
+    <line x1="18" y1="13" x2="12" y2="19"></line>
+    <line x1="6" y1="13" x2="12" y2="19"></line>
+</svg>

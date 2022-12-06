@@ -53,6 +53,12 @@ pub fn bevy(canvas: &str) {
         .add_startup_system(setup)
         .insert_resource(HashGrid { grid_size: 32.0 })
         .insert_resource(SpawnInterval::new(0.5))
+        .insert_resource(ClearColor(Color::Hsla {
+            hue: 0.,
+            saturation: 0.,
+            lightness: 0.,
+            alpha: 0.,
+        }))
         .add_system(step_nodes)
         .add_system(spawn_nodes)
         .add_system(node_repulsion)
