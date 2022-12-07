@@ -1,5 +1,6 @@
 {
     "rust-analyzer.linkedProjects": [
-        "node-visualizer/Cargo.toml"
+        "node-visualizer/Cargo.toml",
+        "path-finder/Cargo.toml"
     ]
 }

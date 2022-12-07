@@ -1,12 +1,15 @@
-use std::{time::{Instant, Duration}, sync::{Arc, atomic::AtomicBool}};
+use std::{
+    sync::{atomic::AtomicBool, Arc},
+    time::{Duration, Instant},
+};
 
 use crate::galacticus::Galacticus;
 
 use rayon::ThreadPoolBuilder;
 
-mod node;
 mod galacticus;
 mod message;
+mod node;
 
 use clap::Parser;
 use rocket::{self, get, routes, State};
@@ -52,13 +55,12 @@ struct Arguments {
     number_of_hops: Option<u32>,
 }
 
-#[get("/<from>/<to>/<hops>")]
-fn index(from: u32, to: u32, hops: u8, state: &State<MyState>) -> String {
+fn search_base(from: u32, to: u32, hops: u8, state: &State<MyState>) -> Option<Vec<u32>> {
     let atomic = Arc::new(AtomicBool::new(false));
-    
-    let result = state.galacticus.listen(from, to, hops.into(), atomic.clone(), Duration::from_secs(10));
 
-
+    let result = state
+        .galacticus
+        .listen(from, to, hops.into(), atomic, Duration::from_secs(10));
 
     match result {
         Some(mut path) => {
@@ -68,22 +70,59 @@ fn index(from: u32, to: u32, hops: u8, state: &State<MyState>) -> String {
                 path = new_path;
             }
 
-            format!("{:?}", path)
-        },
-        None => "Couldn't find it".to_string(),
+            Some(path)
+        }
+        None => None,
+    }
+}
+
+#[get("/id/<from>/<to>/<hops>")]
+fn search_id(from: u32, to: u32, hops: u8, state: &State<MyState>) -> String {
+    if let Some(result) = search_base(from, to, hops, state) {
+        format!("{:?}", result)
+    } else {
+        "Couldn't find it".to_string()
+    }
+}
+
+#[get("/title/<from>/<to>/<hops>")]
+fn search_title(from: &str, to: &str, hops: u8, state: &State<MyState>) -> String {
+    let from = state.galacticus.get_id_from_title(from);
+    let to = state.galacticus.get_id_from_title(to);
+
+    if let (Some(from), Some(to)) = (from, to) {
+        if let Some(result) = search_base(from as u32, to as u32, hops, state) {
+            let titles: Vec<String> = result
+                .iter()
+                .map(|item| state.galacticus.ordered_titles[*item as usize].clone())
+                .collect();
+            format!("{titles:?}")
+        } else {
+            "Couldn't find it".to_string()
+        }
+    } else {
+        "Error: Invalid title".to_string()
     }
 }
 
 async fn handle_server(args: Arguments) {
     let gal = Galacticus::build(&args.titles, &args.page_relation, &args.incoming_neighbours);
-    let gal_state = MyState { galacticus: gal } ;
-    let _ = rocket::build().mount("/", routes![index]).manage(gal_state).launch().await.unwrap();
+    let gal_state = MyState { galacticus: gal };
+    let _ = rocket::build()
+        .mount("/", routes![search_id, search_title])
+        .manage(gal_state)
+        .launch()
+        .await
+        .unwrap();
 }
 
 #[rocket::main]
 async fn main() {
     let args = Arguments::parse();
-    ThreadPoolBuilder::new().num_threads(16).build_global().unwrap();
+    ThreadPoolBuilder::new()
+        .num_threads(16)
+        .build_global()
+        .unwrap();
 
     match args.mode {
         Mode::OneShot => one_shot(args),
@@ -93,7 +132,8 @@ async fn main() {
 }
 
 fn one_shot(args: Arguments) {
-    let galacticus: Galacticus = Galacticus::build(&args.titles, &args.page_relation, &args.incoming_neighbours);
+    let galacticus: Galacticus =
+        Galacticus::build(&args.titles, &args.page_relation, &args.incoming_neighbours);
 
     let now = Instant::now();
 
@@ -104,7 +144,7 @@ fn one_shot(args: Arguments) {
         args.number_of_hops.unwrap(),
         should_stop,
         Duration::from_millis(0),
-        );
+    );
 
     match found {
         Some(path) => println!("path: {:?}", path),
@@ -115,7 +155,8 @@ fn one_shot(args: Arguments) {
 }
 
 fn handle_range(args: Arguments) {
-    let galacticus: Galacticus = Galacticus::build(&args.titles, &args.page_relation, &args.incoming_neighbours);
+    let galacticus: Galacticus =
+        Galacticus::build(&args.titles, &args.page_relation, &args.incoming_neighbours);
 
     let mut missed = 0;
     let now = Instant::now();
@@ -124,12 +165,18 @@ fn handle_range(args: Arguments) {
     for i in 0..1 {
         let now = Instant::now();
         for j in 800_000..900_000 {
-            if i == j || galacticus.nodes[i].neighbours.len() == 0 {
+            if i == j || galacticus.nodes[i].neighbours.is_empty() {
                 continue;
             }
             let now = Instant::now();
             let should_stop = Arc::new(AtomicBool::new(false));
-            let found = galacticus.listen(i as u32, j as u32, 6, should_stop, Duration::from_millis(10));
+            let found = galacticus.listen(
+                i as u32,
+                j as u32,
+                6,
+                should_stop,
+                Duration::from_millis(10),
+            );
 
             if found.is_none() {
                 missed += 1;
@@ -143,5 +190,4 @@ fn handle_range(args: Arguments) {
 
     println!("Missed: {:?}", missed);
     println!("Took: {:?}", now.elapsed());
-
 }
