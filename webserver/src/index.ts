@@ -19,31 +19,19 @@ loadIndexes(searchManager, 100_000);
 
 const rasterizer = new Rasterizer(256);
 let requests = 0;
-app.get("/random/*", async (req, res) => {
-    Wikipedia.getRandomArticle().then(title => {
-        Wikipedia.fetchPageImage(title).then(img => {
-            rasterizer.rasterize(img).then(img => {
-                res.send(img);
-                requests++;
-            });
-        })
-    }).catch(e => {
-        console.log(e);
-    })
-})
 
 app.get("/image/:title", async (req, res) => {
-    try {
-        let image = await Wikipedia.fetchPageImage(req.params.title.replace(".png", ""));
-        rasterizer.rasterize(image).then(img => res.send(img));
-    } catch (e) {
-        res.status(404);
-    }
+    Wikipedia.fetchPageImage(req.params.title.replace(".png", "")).then(img => {
+        try {
+            rasterizer.rasterize(img).then(img => res.send(img));
+        } catch (e) {
+            res.sendStatus(404);
+        }
+    }).catch(err => {
+        res.sendStatus(404);
+    })
 });
 
-app.get("/wiki/random", async (req, res) => {
-    res.send(await Wikipedia.getRandomArticle());
-})
 
 app.use(express.static("../wiki-webapp/dist"));
 
