@@ -17,7 +17,7 @@ searchManager.attachIo(socketServer);
 
 loadIndexes(searchManager, 100_000);
 
-const rasterizer = new Rasterizer(32);
+const rasterizer = new Rasterizer(256);
 let requests = 0;
 app.get("/random/*", async (req, res) => {
     Wikipedia.getRandomArticle().then(title => {

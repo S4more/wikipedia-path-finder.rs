@@ -7,6 +7,8 @@ use crate::galacticus::Galacticus;
 
 use rayon::ThreadPoolBuilder;
 
+pub mod cors;
+
 mod galacticus;
 mod message;
 mod node;
@@ -110,6 +112,7 @@ async fn handle_server(args: Arguments) {
     let gal_state = MyState { galacticus: gal };
     let _ = rocket::build()
         .mount("/", routes![search_id, search_title])
+        .attach(cors::CORS)
         .manage(gal_state)
         .launch()
         .await
