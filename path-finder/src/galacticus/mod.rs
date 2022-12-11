@@ -341,6 +341,7 @@ impl Galacticus {
             })
             .collect_into_vec(&mut self.nodes);
 
+        // Decreases the amount of memory loaded at once.
         drop(v);
         drop(buffer);
 
