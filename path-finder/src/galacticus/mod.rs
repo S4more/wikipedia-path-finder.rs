@@ -149,9 +149,9 @@ impl Galacticus {
                 if found.is_some() {
                     let mut second_half = self.get_and_clear_path();
 
-                    if reverse_size + 1 < 3 {
-                        second_half.pop();
-                    }
+                    // if reverse_size + 1 < 3 {
+                    //     second_half.pop();
+                    // }
 
                     first_half.append(&mut second_half);
                     // self.print_with_names(&first_half);
@@ -279,7 +279,16 @@ impl Galacticus {
             });
 
             match found {
-                Some(val) => return Some(*val),
+                // one edge case is if the current_hop + 3 == max_hops is the first possible scenario.
+                // This won't add the started node to it.
+                // In other words, when the max_hops is 3 and the current hops is 0, we will miss the
+                // origin.
+                Some(val) => {
+                    if current_hop == 0  {
+                        CURRENT_PATH.lock().unwrap().push(node.id);
+                    }
+                    return Some(*val)
+                },
                 None => return None,
             }
         }

@@ -65,13 +65,13 @@ fn search_base(from: u32, to: u32, hops: u8, state: &State<MyState>) -> Option<V
         .listen(from, to, hops.into(), atomic, Duration::from_secs(10));
 
     match result {
-        Some(mut path) => {
-            if hops == 3 {
-                let mut new_path = vec![from];
-                new_path.append(&mut path);
-                path = new_path;
-            }
-
+        Some(path) => {
+            // if hops == 3 {
+            //     let mut new_path = vec![from];
+            //     new_path.append(&mut path);
+            //     path = new_path;
+            // }
+            //
             Some(path)
         }
         None => None,
