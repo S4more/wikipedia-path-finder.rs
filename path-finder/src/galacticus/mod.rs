@@ -34,13 +34,16 @@ fn read_file(path: &String) -> Vec<u8> {
 
 impl Galacticus {
     pub fn build(
-        path_to_ordered_titles: &String,
+        path_to_ordered_titles: Option<String>,
         path_to_nodes: &String,
         path_to_incoming_nodes: &String,
     ) -> Self {
         println!("Reading file titles...");
-        let buffer = read_file(path_to_ordered_titles);
-        let titles: Vec<String> = serde_json::from_slice(&buffer).unwrap();
+        let mut titles = vec![];
+        if let Some(path) = path_to_ordered_titles {
+            let buffer = read_file(&path);
+            titles = serde_json::from_slice(&buffer).unwrap();
+        }
 
         let mut gal = Galacticus {
             nodes: vec![],
@@ -320,8 +323,6 @@ impl Galacticus {
         let buffer = read_file(path_to_nodes);
 
         let mut v: Vec<Vec<u32>> = serde_json::from_slice(&buffer).unwrap();
-        let buffer = read_file(path_to_incoming_nodes);
-        let mut incoming_nodes: Vec<Vec<u32>> = serde_json::from_slice(&buffer).unwrap();
 
         println!("Took {:?}", now.elapsed());
 
@@ -329,22 +330,28 @@ impl Galacticus {
         println!("Creating nodes...");
 
         v.par_iter_mut()
-            .zip(incoming_nodes.par_iter_mut())
             .enumerate()
-            .map(|(index, (neighbours, incoming))| {
+            .map(|(index, neighbours)| {
                 neighbours.sort();
                 let ordered_neighbours = neighbours.clone();
                 neighbours.shrink_to_fit();
-                let r = Node::new(index as u32, ordered_neighbours, incoming.clone());
-
-                incoming.clear();
-                incoming.shrink_to_fit();
+                let r = Node::new(index as u32, ordered_neighbours, vec![]);
                 neighbours.clear();
-                neighbours.shrink_to_fit();
-
                 r
             })
             .collect_into_vec(&mut self.nodes);
+
+        drop(v);
+        drop(buffer);
+
+        let buffer = read_file(path_to_incoming_nodes);
+        let incoming_nodes: Vec<Vec<u32>> = serde_json::from_slice(&buffer).unwrap();
+
+        self.nodes.par_iter_mut()
+            .zip(incoming_nodes)
+            .for_each(|(node, mut neighbours)| {
+                node.neighbours.append(&mut neighbours)
+            });
 
         println!("Took: {:?}", now.elapsed());
     }

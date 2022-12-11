@@ -36,7 +36,7 @@ impl Default for Mode {
 #[derive(Parser, Default, Debug)]
 struct Arguments {
     #[clap(short, long)]
-    titles: String,
+    titles: Option<String>,
 
     #[clap(short, long)]
     page_relation: String,
@@ -108,7 +108,7 @@ fn search_title(from: &str, to: &str, hops: u8, state: &State<MyState>) -> Strin
 }
 
 async fn handle_server(args: Arguments) {
-    let gal = Galacticus::build(&args.titles, &args.page_relation, &args.incoming_neighbours);
+    let gal = Galacticus::build(args.titles, &args.page_relation, &args.incoming_neighbours);
     let gal_state = MyState { galacticus: gal };
     let _ = rocket::build()
         .mount("/", routes![search_id, search_title])
@@ -136,7 +136,7 @@ async fn main() {
 
 fn one_shot(args: Arguments) {
     let galacticus: Galacticus =
-        Galacticus::build(&args.titles, &args.page_relation, &args.incoming_neighbours);
+        Galacticus::build(args.titles, &args.page_relation, &args.incoming_neighbours);
 
     let now = Instant::now();
 
@@ -159,7 +159,7 @@ fn one_shot(args: Arguments) {
 
 fn handle_range(args: Arguments) {
     let galacticus: Galacticus =
-        Galacticus::build(&args.titles, &args.page_relation, &args.incoming_neighbours);
+        Galacticus::build(args.titles, &args.page_relation, &args.incoming_neighbours);
 
     let mut missed = 0;
     let now = Instant::now();
