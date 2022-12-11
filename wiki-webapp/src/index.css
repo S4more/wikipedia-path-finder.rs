@@ -1,3 +1,47 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+.main_container {
+    display: grid;
+    place-items: center;
+    grid-template-columns: 80% 20%;
+    grid-template-rows: min-content 1fr;
+}
+
+.main_container>form:only-child {
+    grid-column-start: 1;
+    grid-column-end: 3;
+    grid-row-start: 1;
+    grid-row-end: 3;
+    flex-direction: column;
+    padding-top: 0.5rem;
+}
+
+.main_container>form {
+    padding: 0.5rem 1rem;
+    padding-top: 2rem;
+    backdrop-filter: blur(0.5rem);
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+
+.main_container>.path_list {
+    z-index: 999;
+    backdrop-filter: blur(0.5rem);
+    display: flex;
+    flex-direction: column;
+    grid-column-start: 2;
+    grid-column-end: 3;
+    grid-row-start: 1;
+    grid-row-end: 3;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.1);
+    place-self: end;
+    align-items: center;
+}

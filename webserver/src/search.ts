@@ -15,7 +15,6 @@ export default class SearchManager {
 
     private search(term: string) {
         const searchResult = search(this.db, { term, limit: 6 });
-        console.log(searchResult);
         return searchResult.hits.map(hit => hit.document.title);
     }
 
