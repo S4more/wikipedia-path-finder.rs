@@ -1,4 +1,54 @@
 # Web Development IV 520 Final Project
+Finding links between two pages in Wikipedia blazingly fast.
+
+## Specs
+The project was made using Rust, Web-Assembly, JavaScript and Wikipedia's data-dump published in October 2022
+
+### Dataset
+We are using Wikipedia's official data-dump, posted in October of 2022. 
+The original size of the dumb was close to 100 GB, but after parsing out all the useless information, we ended up with a total of ~5 GB of data.
+We are storing three different types of data:
+1. The name of all 6 million pages on Wikipedia order by number of references towards the page
+	We are using the index of the pages as their ID, so we can avoid repeating their names
+2. A look-up table indexed by the page position (see 1) and an array of nodes that this page points to
+3. A reverse look-up table, with all the nodes that point to a specific page
+
+While the second and third files are redundant, utilising a reverse lookup table allowed us to reduce the boot up time and search time by a lot.
+
+### Rust Path-Finding
+We quickly realised that using Node for the path-finding algorithm wouldn't work. Node's performance limitation wouldn't allows us to even parse the original file and for that reason, we decided to go with Rust both for the algorithm and for the parsing.
+We managed to make it really fast and for a single request, it can most of the time figure out the path in less than 10 ms.
+We didn't had the time to test it on the entire Wikipedia, but we haven't found a single combination of pages that can't be found.
+
+### Rust API
+The API is integrated with our path-finding. We are using a crate ~library~ called Rocket so the Web and rust can exchange data.
+There is a single endpoint that allows the user to specify the source page, the destination and the number of maximum number of hops.
+
+### Visualisation
+Noah stuff here
+
+## Considerations
+### JSON as database
+We decided to not implement any formal database, since all the data needs to be loaded in memory. Fetching for the nodes from a database would result in millions of query per second and it would make the search too slow.
+The initial load consists of 18_750_000 readings. Utilising multi-thread, with Rust, we managed to perform the entire load in under 15 seconds.
+
+### Bugs
+The algorithm is slow to test. For every query, we need to open Wikipedia ourselves and make sure that we got a valid path. For this reason, while the path is always valid, the output of the path may be wrong sometimes. 
+We also didn't implement any loop correction, so eventually paths will have references to itself. 
+
+### Lack hosting
+Because our algorithm needs to allocate 8 GBs of RAM at the start, we couldn't find any solutions that would allow us to host it. We are still waiting for Oracle's e-mail so we can host it there.
+
+## Running it yourself
+(You need at least 16 gbs of memory to run it.)
+
+1. Download and extract the dataset by running `bash download_indexs.sh`
+2. Run the wiki-webapp `node webserver/dist/index.js`
+3. Serve the files in `wiki-webabb/dist/` 
+4. Run `pathfinder.exe -t ordered_titles/ordered_titles.json -p test_links.json -m server -i incoming_links.json`
+5. Have fun!
+
+***Warning this script will require ~1.2gb of download bandwidth and ~4.2gb of disk space***
 
 ## Team-7
 
@@ -6,12 +56,3 @@
  - Guilherme Machado
  - Noah Labrecque
 
-## Setup
-
-To run the server some large files are required, these can be downloaded by running:
-
-***Warning this script will require ~1.2gb of download bandwidth and ~4.2gb of disk space***
-
-```bash
-bash download_index.sh
-```
