@@ -98,6 +98,7 @@ impl Galacticus {
                 println!("Too big");
                 self.print_with_names(&cur_path);
             }
+            println!("---+----");
             Some(cur_path)
         } else {
             // println!("Starting reverse_lookup.");
@@ -115,6 +116,7 @@ impl Galacticus {
         max_hops: u32,
         timeout: Duration,
     ) -> Option<Vec<u32>> {
+        println!("Reversing.");
         let reverse_size = 2;
         let in_the_way_nodes =
             self.get_neighbours_with_distance_of(&self.nodes[destination as usize], reverse_size);
@@ -235,6 +237,7 @@ impl Galacticus {
                     }
                     lock.push(destination);
                     lock.push(node.id);
+                    println!("A - Adding: {} and {}", self.ordered_titles[destination as usize], self.ordered_titles[node.id as usize]);
                     should_stop.store(true, Relaxed);
                     return Some(node.id);
                 }
@@ -251,6 +254,7 @@ impl Galacticus {
 
         // Will happen only once
         if current_hop + 3 == max_hops {
+            println!("Increasing the hops.");
             let found = node.neighbours.par_iter().find_any(|n| {
                 let should_stop = should_stop.clone();
                 let should_stop2 = should_stop.clone();
@@ -287,9 +291,10 @@ impl Galacticus {
                 // In other words, when the max_hops is 3 and the current hops is 0, we will miss the
                 // origin.
                 Some(val) => {
-                    if current_hop == 0  {
-                        CURRENT_PATH.lock().unwrap().push(node.id);
-                    }
+                    // if current_hop == 0  {
+                    println!("B - Adding: {}", self.ordered_titles[node.id as usize]);
+                    CURRENT_PATH.lock().unwrap().push(node.id);
+                    // }
                     return Some(*val)
                 },
                 None => return None,
@@ -311,6 +316,7 @@ impl Galacticus {
             );
             if result.is_some() {
                 CURRENT_PATH.lock().unwrap().push(node.id);
+                println!("C - Adding: {}", self.ordered_titles[node.id as usize]);
                 return result;
             }
         }
@@ -362,7 +368,6 @@ impl Galacticus {
         node: &'a Node,
         distance: u32,
     ) -> Vec<&'a Node> {
-        let now = Instant::now();
         let mut neighbours = vec![node];
         for _ in 0..distance {
             let local_neighbours = neighbours
