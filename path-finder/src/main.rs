@@ -58,24 +58,13 @@ struct Arguments {
 }
 
 fn search_base(from: u32, to: u32, hops: u8, state: &State<MyState>) -> Option<Vec<u32>> {
-    let atomic = Arc::new(AtomicBool::new(false));
-
-    let result = state
-        .galacticus
-        .listen(from, to, hops.into(), atomic, Duration::from_secs(10));
-
-    match result {
-        Some(path) => {
-            // if hops == 3 {
-            //     let mut new_path = vec![from];
-            //     new_path.append(&mut path);
-            //     path = new_path;
-            // }
-            //
-            Some(path)
-        }
-        None => None,
-    }
+    state.galacticus.listen(
+        from,
+        to,
+        hops.into(),
+        Arc::new(AtomicBool::new(false)),
+        Duration::from_millis(250),
+    )
 }
 
 #[get("/id/<from>/<to>/<hops>")]

@@ -86,11 +86,6 @@ impl Galacticus {
             &instant,
         );
 
-        // match found {
-        //     None => self.log(source, destination),
-        //     _ => {},
-        // }
-
         if found.is_some() {
             let cur_path = self.get_and_clear_path();
 
@@ -101,10 +96,11 @@ impl Galacticus {
             println!("---+----");
             Some(cur_path)
         } else {
+            let cur_path = self.get_and_clear_path();
             // println!("Starting reverse_lookup.");
-            if instant.elapsed() > timeout {
-                return self.reverse_lookup(local_node, destination, max_hops, timeout);
-            }
+            // if instant.elapsed() > timeout {
+            //     return self.reverse_lookup(local_node, destination, max_hops, timeout);
+            // }
             None
         }
     }
@@ -121,8 +117,10 @@ impl Galacticus {
         let in_the_way_nodes =
             self.get_neighbours_with_distance_of(&self.nodes[destination as usize], reverse_size);
 
+        let should_stop = Arc::new(AtomicBool::new(false));
+
         for node in in_the_way_nodes {
-            let should_stop = Arc::new(AtomicBool::new(false));
+            let stop = should_stop.clone();
             let now = Instant::now();
             let found = self.handle_branch(
                 local_node,
@@ -130,14 +128,14 @@ impl Galacticus {
                 node.id,
                 max_hops - reverse_size,
                 0,
-                should_stop,
+                stop,
                 u32::MAX,
                 &Duration::from_millis(25),
                 &now,
             );
 
             if found.is_some() {
-                let should_stop = Arc::new(AtomicBool::new(false));
+                let should_stop = should_stop.clone();
                 let mut first_half = self.get_and_clear_path();
                 let found = self.handle_branch(
                     node,
@@ -237,7 +235,6 @@ impl Galacticus {
                     }
                     lock.push(destination);
                     lock.push(node.id);
-                    println!("A - Adding: {} and {}", self.ordered_titles[destination as usize], self.ordered_titles[node.id as usize]);
                     should_stop.store(true, Relaxed);
                     return Some(node.id);
                 }
@@ -292,11 +289,10 @@ impl Galacticus {
                 // origin.
                 Some(val) => {
                     // if current_hop == 0  {
-                    println!("B - Adding: {}", self.ordered_titles[node.id as usize]);
                     CURRENT_PATH.lock().unwrap().push(node.id);
                     // }
-                    return Some(*val)
-                },
+                    return Some(*val);
+                }
                 None => return None,
             }
         }
@@ -316,7 +312,6 @@ impl Galacticus {
             );
             if result.is_some() {
                 CURRENT_PATH.lock().unwrap().push(node.id);
-                println!("C - Adding: {}", self.ordered_titles[node.id as usize]);
                 return result;
             }
         }
@@ -354,11 +349,10 @@ impl Galacticus {
         let buffer = read_file(path_to_incoming_nodes);
         let incoming_nodes: Vec<Vec<u32>> = serde_json::from_slice(&buffer).unwrap();
 
-        self.nodes.par_iter_mut()
+        self.nodes
+            .par_iter_mut()
             .zip(incoming_nodes)
-            .for_each(|(node, mut neighbours)| {
-                node.neighbours.append(&mut neighbours)
-            });
+            .for_each(|(node, mut neighbours)| node.neighbours.append(&mut neighbours));
 
         println!("Took: {:?}", now.elapsed());
     }

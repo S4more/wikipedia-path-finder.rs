@@ -6,6 +6,7 @@ import { createServer } from 'http';
 import SearchManager from './search';
 import loadIndexes from './title-index-loader';
 import path from 'path';
+import PathMap from './path-map';
 
 const app = express();
 const port = 8080;
@@ -19,6 +20,9 @@ searchManager.attachIo(socketServer);
 loadIndexes(searchManager, 100_000);
 
 const rasterizer = new Rasterizer(256);
+const pathMap = new PathMap(10);
+pathMap.pollForever();
+
 let requests = 0;
 
 app.get("/image/:title", async (req, res) => {
@@ -33,6 +37,9 @@ app.get("/image/:title", async (req, res) => {
     })
 });
 
+app.get("/path-image", (req, res) => {
+    res.send(pathMap.getImage());
+})
 
 app.get("/path/:from/:to", async (req, res) => {
     res.sendFile(path.resolve(__dirname, "../../wiki-webapp/dist/index.html"));

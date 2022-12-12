@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import IconArrowRight from "../components/icons/icon-arrow-right";
 import ButtonBase from "../components/inputs/button";
 import ButtonSubmit from "../components/inputs/button-submit";
+import MapView from "../components/map-view";
 import NodeVisualizer from "../components/node-visualizer";
 import PathList from "../components/path-list";
 import TitleSelector from "../components/title-selector";
@@ -44,9 +45,11 @@ export default function Home() {
 
     return <>
         <div className="main_container h-screen">
+
             {visualizerOpen ? <NodeVisualizer id="canvas" nodes={path} className="peer" /> : ""}
             {visualizerOpen ? <PathList path={path} /> : ""}
             <form className="shadow-md">
+                <MapView />
                 {!visualizerOpen ?
                     <h2 className="m-10 text-center text-3xl font-bold text-gray-900">
                         Find a path between pages

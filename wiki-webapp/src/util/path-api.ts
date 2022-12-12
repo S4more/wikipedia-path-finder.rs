@@ -23,14 +23,11 @@ function combinePaths(paths: string[][]) {
     for (let path of paths) {
         let l = root;
         for (let layer of path) {
-            if (l[layer]) {
-                l = l[layer];
-            } else {
-                l[layer] = {};
-                l = l[layer];
-            }
+            if (!l[layer]) l[layer] = {};
+            l = l[layer];
         }
     }
+
     console.error(root);
 }
 
@@ -40,7 +37,7 @@ export async function findCompoundPath(from: string, to: string) {
     let paths = [];
     let s = new Set<string>();
 
-    for (let i = 0; i < 128; i++) {
+    for (let i = 0; i < 32; i++) {
         let path = await findPath(from, to);
         console.log(i);
         paths.forEach(path => path.forEach(item => s.add(item)));
@@ -50,11 +47,5 @@ export async function findCompoundPath(from: string, to: string) {
 
 
     combinePaths(paths);
-    // console.error(s);
-
-    // let paths = await Promise.all([...Array(8)].map((v) => await findPath(from, to).catch(console.error).then(res => {
-    //     console.warn(res)
-    //     return res;
-    // })));
     console.warn(paths);
 }
