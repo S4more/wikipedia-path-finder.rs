@@ -2,6 +2,7 @@ import { PropsWithChildren, useEffect, useRef, useState } from "react"
 import io from 'socket.io-client';
 export interface TitleSelectorProps {
     titleChange: (title: string) => void,
+    value: string,
 }
 
 const style_thinScroll = "scrollbar-thin scrollbar-thumb-rounded scrollbar-track-rounded-md scrollbar-track-gray-100 scrollbar-thumb-slate-300";
@@ -33,8 +34,7 @@ function TitleSelectorItem(props: PropsWithChildren<TitleSelectorItemProps>): JS
 const socket = io();
 export default function TitleSelector(props: TitleSelectorProps) {
     const [isOpen, setOpen] = useState(false);
-    const [inputText, setInputText] = useState("");
-    const [dropHeight, setDropHeight] = useState(0);
+    const [inputText, setInputText] = useState(props.value);
 
     useEffect(() => {
         socket.on('query-result', (data) => {
@@ -43,11 +43,11 @@ export default function TitleSelector(props: TitleSelectorProps) {
 
         return () => {
             socket.off('query-result');
+            socket.close();
         };
     }, []);
 
     useEffect(() => {
-        console.log("searching");
         socket?.emit("query", inputText);
         props.titleChange(inputText);
     }, [inputText])
@@ -73,14 +73,12 @@ export default function TitleSelector(props: TitleSelectorProps) {
 
     const close = () => {
         clearTimeout(timeout);
-        setDropHeight(0);
         setOpen(false);
     }
 
     const open = () => {
         clearTimeout(timeout);
         setOpen(true);
-        setDropHeight(2.1);
     }
 
     return <div

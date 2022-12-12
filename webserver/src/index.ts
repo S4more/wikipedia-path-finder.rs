@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import { createServer } from 'http';
 import SearchManager from './search';
 import loadIndexes from './title-index-loader';
+import path from 'path';
 
 const app = express();
 const port = 8080;
@@ -32,6 +33,10 @@ app.get("/image/:title", async (req, res) => {
     })
 });
 
+
+app.get("/path/:from/:to", async (req, res) => {
+    res.sendFile(path.resolve(__dirname, "../../wiki-webapp/dist/index.html"));
+});
 
 app.use(express.static("../wiki-webapp/dist"));
 
