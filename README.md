@@ -65,10 +65,9 @@ Because our algorithm needs to allocate 8 GBs of RAM at the start, we couldn't f
 (You need at least 16 gbs of memory to run it.)
 
 1. Download and extract the dataset by running `bash download_indexs.sh`
-2. Run the wiki-webapp `node webserver/dist/index.js` (you will maybe need to install the dependencies first)
-3. Serve the files in `wiki-webabb/dist/` 
-4. Run `.\path_finder.exe -t search_index/ordered_titles.json -p search_index/test_links.json -m server -i search_index/incoming_links.json`
-5. Have fun!
+2. Run the server `cd webserver; npm run start` (you will maybe need to install the dependencies first) 
+3. Run `.\path_finder.exe -t search_index/ordered_titles.json -p search_index/test_links.json -m server -i search_index/incoming_links.json`
+4. Have fun!
 
 ***Warning this script will require ~1.2gb of download bandwidth and ~4.2gb of disk space***
 
