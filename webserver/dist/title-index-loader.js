@@ -17,7 +17,7 @@ function loadIndexes(searchManager, limit) {
     let count = 0;
     let buffer = [];
     console.log("Indexer Starting");
-    let fileStream = fs_1.default.createReadStream('./search_index/ordered_titles.json');
+    let fileStream = fs_1.default.createReadStream('../search_index/ordered_titles.json');
     const pipeline = (0, stream_chain_1.chain)([
         fileStream,
         (0, stream_json_1.parser)(),

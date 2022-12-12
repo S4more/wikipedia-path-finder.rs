@@ -17,7 +17,7 @@ export default function loadIndexes(searchManager: SearchManager, limit: number)
     let count = 0;
     let buffer: { title: string }[] = [];
     console.log("Indexer Starting")
-    let fileStream = fs.createReadStream('./search_index/ordered_titles.json')
+    let fileStream = fs.createReadStream('../search_index/ordered_titles.json')
     const pipeline = chain([
         fileStream,
         parser(),
