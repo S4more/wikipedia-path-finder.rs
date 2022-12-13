@@ -83,19 +83,16 @@ export default class PathMap {
                 return;
         }
 
-        let start = performance.now();
-
         await this.pollPoint(this.x, this.y);
-        console.log(`Polled: ${this.x}, ${this.y} in ${performance.now() - start}`);
         this.x++;
-
     }
 
     async pollForever() {
-        await this.pollOnce();
-        await this.pollOnce();
-        await this.pollOnce();
-        await this.pollOnce();
+        let start = performance.now();
+        // Try not to block for too long 
+        while (performance.now() - start < 50) {
+            await this.pollOnce();
+        }
         if (this.currentScale > this.scale) return;
         setTimeout(() => this.pollForever());
     }

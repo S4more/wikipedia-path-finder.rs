@@ -4,9 +4,6 @@ export default function MapView() {
     const [imgUrl, setImgUrl] = useState("");
 
     useEffect(() => {
-        console.log(
-            "updating image"
-        )
         let stop = false;
 
         const update = async () => {
@@ -14,9 +11,6 @@ export default function MapView() {
             let result = await (fetch("/path-image"));
             let text = await result.text();
             setImgUrl(text);
-            console.log(
-                "updating image"
-            )
             setTimeout(() => update(), 250)
         }
 
@@ -27,7 +21,5 @@ export default function MapView() {
         }
     }, []);
 
-    return <img style={{
-        "imageRendering": "pixelated"
-    }} src={imgUrl} />;
+    return <img style={{ "imageRendering": "pixelated" }} className="h-fit" src={imgUrl} />;
 }

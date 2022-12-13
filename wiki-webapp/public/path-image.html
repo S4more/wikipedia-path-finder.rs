@@ -1,0 +1,82 @@
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+
+<body>
+    <h1>Hop count heatmap</h1>
+    <h4>Number of links taken between pages</h4>
+    <main>
+        <img href="" id="main_image" />
+        <div class="legend">
+            <span style="--color: #12ff00">1</span>
+            <span style="--color: #00d5d8">2</span>
+            <span style="--color: #009bff">3</span>
+            <span style="--color: #0006ff">4</span>
+            <span style="--color: #dc00ad">5</span>
+            <span style="--color: #ff0058">6</span>
+            <span style="--color: #ff0000">7</span>
+        </div>
+    </main>
+
+</body>
+<style>
+    body {
+        text-align: center;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        height: 100vh;
+        width: 100vw;
+        padding: 0px;
+        margin: 0px;
+    }
+
+    main {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .legend {
+        display: flex;
+        flex-direction: column;
+        font-weight: bold;
+    }
+
+    .legend>* {
+        background-color: var(--color);
+        padding: 2px 8px;
+        color: black;
+        font-size: 30px;
+        -webkit-text-stroke-width: 1px;
+        -webkit-text-stroke-color: white;
+    }
+
+    main>* {
+        margin: 0.5rem;
+        box-shadow: 0.2rem 0.2rem 0.5rem #0007;
+
+    }
+
+    #main_image {
+        width: min(80vh, 80vw);
+        height: min(80vh, 80vw);
+        image-rendering: pixelated;
+    }
+</style>
+<script>
+    const img = document.querySelector("#main_image");
+    const updateImage = async () => {
+        let result = await (fetch("/path-image"));
+        let text = await result.text();
+        img.src = text;
+        setTimeout(() => updateImage(), 500);
+    }
+    updateImage()
+</script>
+
+</html>
