@@ -65,6 +65,8 @@ Because our algorithm needs to allocate 8 GBs of RAM at the start, we couldn't f
 (You need at least 16 gbs of memory to run it.)
 
 1. Download and extract the dataset by running `bash download_indexs.sh`
+   1. If this script does not work, download the required files directly from this (link)[https://drive.google.com/drive/folders/1ISFHh8L3-WUSBfhkbS5YpXfg-4m586WU]
+   2. All files should be unzipped and placed into `search_index`
 2. Run the server `cd webserver; npm run start` (you will maybe need to install the dependencies first) 
 3. Run `.\path_finder.exe -t search_index/ordered_titles.json -p search_index/test_links.json -m server -i search_index/incoming_links.json`
 4. Have fun!
