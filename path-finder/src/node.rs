@@ -14,7 +14,6 @@ impl Node {
     }
 
     pub fn has_neighbour(&self, id: &u32) -> bool {
-        return self.neighbours.contains(id);
+        self.neighbours.contains(id)
     }
 }
-

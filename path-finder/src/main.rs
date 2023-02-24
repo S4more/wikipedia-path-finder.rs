@@ -20,17 +20,12 @@ struct MyState {
     galacticus: Galacticus,
 }
 
-#[derive(clap::ValueEnum, Clone, Debug)]
+#[derive(clap::ValueEnum, Clone, Debug, Default)]
 enum Mode {
     OneShot,
     Range,
+    #[default]
     Server,
-}
-
-impl Default for Mode {
-    fn default() -> Self {
-        Mode::Server
-    }
 }
 
 #[derive(Parser, Default, Debug)]

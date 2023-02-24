@@ -3,15 +3,15 @@ use rayon::prelude::*;
 use std::{
     fs::File,
     io::Read,
-    ops::Index,
     sync::{atomic::Ordering::Relaxed, Arc, Mutex},
     time::{Duration, Instant},
 };
 
-use crate::node::page_node::Node;
 use std::sync::atomic::AtomicBool;
 
 use itertools::Itertools;
+
+use crate::node::Node;
 
 pub struct Galacticus {
     // The index of the node will be equivalent to it's id
@@ -75,7 +75,7 @@ impl Galacticus {
         let instant = Instant::now();
 
         let found = self.handle_branch(
-            &local_node,
+            local_node,
             source,
             destination,
             max_hops,
