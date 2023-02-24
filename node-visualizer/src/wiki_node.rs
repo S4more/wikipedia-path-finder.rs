@@ -11,7 +11,7 @@ pub fn setup_nodes(
     asset_server: Res<AssetServer>,
     path: Res<PathResource>,
 ) {
-    let titles: Vec<String> = path.0.split(",").map(|v| v.to_string()).collect();
+    let titles: Vec<String> = path.0.split(',').map(|v| v.to_string()).collect();
     println!("{:?}", titles);
 
     let ids: Vec<Entity> = titles
@@ -34,7 +34,7 @@ pub fn setup_nodes(
 pub fn create_node(texture: Handle<Image>, position: Vec2) -> (PhysicsObject, SpriteBundle) {
     (
         PhysicsObject {
-            last_position: position.clone(),
+            last_position: position,
             current_position: position
                 + Vec2::new(rand::random::<f32>() - 0.5, rand::random::<f32>() - 0.5) * 2.0,
         },
@@ -62,7 +62,7 @@ pub fn step_nodes(mut query: Query<&mut PhysicsObject>) {
     let drag = 0.98;
 
     for mut node in query.iter_mut() {
-        let last = node.current_position.clone();
+        let last = node.current_position;
         let delta = (node.current_position - node.last_position) * drag;
 
         node.current_position += delta;

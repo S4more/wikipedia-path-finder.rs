@@ -21,12 +21,12 @@ impl HashGrid {
     where
         I: Iterator<Item = (&'a PhysicsObject, Entity)>,
     {
-        let mut builder = GridBuilder::new(&self);
+        let mut builder = GridBuilder::new(self);
 
         for item in objs.into_iter() {
             builder.insert_obj(item)
         }
-        return builder.get_all_possible_collisions();
+        builder.get_all_possible_collisions()
     }
 }
 
@@ -96,6 +96,6 @@ impl<'a> GridBuilder<'a> {
             }
         }
 
-        return collisions.into_iter().collect();
+        collisions.into_iter().collect()
     }
 }
