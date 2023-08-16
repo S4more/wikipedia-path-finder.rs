@@ -1,61 +1,33 @@
 use bevy::prelude::*;
-use rand::random;
 
-use crate::{connection::create_connection, hash_grid::HashGrid};
+use crate::{connection::create_connection, hash_grid::HashGrid, PathResource};
 #[derive(Component, Default)]
 pub struct PhysicsObject {
     pub last_position: Vec2,
     pub current_position: Vec2,
 }
-
-pub struct WikiNode {
-    title: String,
-}
-
-#[derive(Resource)]
-pub struct SpawnInterval {
-    elapsed_seconds: f32,
-    pub threshold_seconds: f32,
-}
-impl SpawnInterval {
-    pub fn should_spawn(&mut self, elapsed: f32) -> bool {
-        self.elapsed_seconds += elapsed;
-        if self.elapsed_seconds >= self.threshold_seconds {
-            self.elapsed_seconds -= self.threshold_seconds;
-            return true;
-        } else {
-            return false;
-        }
-    }
-    pub fn new(interval: f32) -> Self {
-        Self {
-            elapsed_seconds: 0.0,
-            threshold_seconds: interval,
-        }
-    }
-}
-
-pub fn spawn_nodes(
+pub fn setup_nodes(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    time: Res<Time>,
-    mut spawn_interval: ResMut<SpawnInterval>,
-    nodes: Query<(&PhysicsObject, Entity)>,
+    path: Res<PathResource>,
 ) {
-    if spawn_interval.should_spawn(time.delta_seconds()) {
-        let nodes: Vec<(&PhysicsObject, Entity)> = nodes.into_iter().collect();
-        let index = random::<usize>() % nodes.len();
+    let titles: Vec<String> = path.0.split(",").map(|v| v.to_string()).collect();
+    println!("{:?}", titles);
 
-        let (node_pos, node_id) = nodes[index];
+    let ids: Vec<Entity> = titles
+        .iter()
+        .map(|title| {
+            commands
+                .spawn(create_node(
+                    asset_server.load(format!("/image/{}.png", title)),
+                    Vec2::new(0., 0.),
+                ))
+                .id()
+        })
+        .collect();
 
-        let new_id = commands
-            .spawn(create_node(
-                asset_server.load(format!("/random/{}.png", random::<u32>())),
-                node_pos.current_position,
-            ))
-            .id();
-
-        commands.spawn(create_connection(node_id, new_id));
+    for i in 0..ids.len() - 1 {
+        commands.spawn(create_connection(ids[i], ids[i + 1]));
     }
 }
 

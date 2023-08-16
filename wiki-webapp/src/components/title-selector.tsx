@@ -1,7 +1,8 @@
 import { PropsWithChildren, useEffect, useRef, useState } from "react"
 import io from 'socket.io-client';
 export interface TitleSelectorProps {
-
+    titleChange: (title: string) => void,
+    value: string,
 }
 
 const style_thinScroll = "scrollbar-thin scrollbar-thumb-rounded scrollbar-track-rounded-md scrollbar-track-gray-100 scrollbar-thumb-slate-300";
@@ -33,8 +34,7 @@ function TitleSelectorItem(props: PropsWithChildren<TitleSelectorItemProps>): JS
 const socket = io();
 export default function TitleSelector(props: TitleSelectorProps) {
     const [isOpen, setOpen] = useState(false);
-    const [inputText, setInputText] = useState("");
-    const [dropHeight, setDropHeight] = useState(0);
+    const [inputText, setInputText] = useState(props.value);
 
     useEffect(() => {
         socket.on('query-result', (data) => {
@@ -43,12 +43,13 @@ export default function TitleSelector(props: TitleSelectorProps) {
 
         return () => {
             socket.off('query-result');
+            socket.close();
         };
     }, []);
 
     useEffect(() => {
-        console.log("searching");
         socket?.emit("query", inputText);
+        props.titleChange(inputText);
     }, [inputText])
 
     const doFocus = () => {
@@ -72,28 +73,26 @@ export default function TitleSelector(props: TitleSelectorProps) {
 
     const close = () => {
         clearTimeout(timeout);
-        setDropHeight(0);
         setOpen(false);
     }
 
     const open = () => {
         clearTimeout(timeout);
         setOpen(true);
-        setDropHeight(2.1);
     }
 
     return <div
         onBlurCapture={doBlur}
         onFocusCapture={() => doFocus()}
-        className="relative group !mt-1 !mb-1 shadow-sm focus:outline-none rounded-md h-fit border-gray-300 border p-0 z-10">
+        className="relative group !mt-1 !mb-1 shadow-sm focus:outline-none rounded-md h-fit border-gray-300 border p-0">
         <span className="flex items-center">
             <input
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                className={`block w-full ${isOpen && suggestedTitles.length > 0 ? "rounded-t-md" : "rounded-md"} focus:ring-0 border-none sm:text-sm mt-0`}
+                className={`block w-full ${isOpen && suggestedTitles.length > 0 ? "rounded-t-md" : "rounded-md"} focus:ring-0 border-none sm:text-sm mt-0 z-10`}
             />
-            <span className="-ml-8 h-6 flex justify-center pointer-events-none">
+            <span className="z-10 -ml-8 h-6 flex justify-center pointer-events-none">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9" />
                 </svg>
@@ -103,12 +102,12 @@ export default function TitleSelector(props: TitleSelectorProps) {
         <div style={{
             overflow: "hidden",
             height: `${suggestedTitles.length * (isOpen ? 36 : 0)}px`,
-        }} className={`transition-spacing rounded-b-md z-20 flex flex-col overflow-hidden cursor-pointer absolute w-full ring-1 outline-1 ${isOpen && suggestedTitles.length > 0 ? "ring-gray-300" : "ring-transparent"}  ` + style_thinScroll}>
+        }} className={`transition-spacing rounded-b-md z-50 flex flex-col overflow-hidden cursor-pointer absolute w-full ring-1 outline-1 ${isOpen && suggestedTitles.length > 0 ? "ring-gray-300" : "ring-transparent"}  ` + style_thinScroll}>
             {
                 suggestedTitles.map(
                     (title: string) => <TitleSelectorItem isOpen={isOpen} key={title} onSelect={selectItem} title={title} />
                 )
             }
         </div>
-    </div >
+    </div>
 }

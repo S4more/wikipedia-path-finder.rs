@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import { createServer } from 'http';
 import SearchManager from './search';
 import loadIndexes from './title-index-loader';
+import path from 'path';
 
 const app = express();
 const port = 8080;
@@ -17,33 +18,25 @@ searchManager.attachIo(socketServer);
 
 loadIndexes(searchManager, 100_000);
 
-const rasterizer = new Rasterizer(32);
+const rasterizer = new Rasterizer(256);
 let requests = 0;
-app.get("/random/*", async (req, res) => {
-    Wikipedia.getRandomArticle().then(title => {
-        Wikipedia.fetchPageImage(title).then(img => {
-            rasterizer.rasterize(img).then(img => {
-                res.send(img);
-                requests++;
-            });
-        })
-    }).catch(e => {
-        console.log(e);
-    })
-})
 
 app.get("/image/:title", async (req, res) => {
-    try {
-        let image = await Wikipedia.fetchPageImage(req.params.title.replace(".png", ""));
-        rasterizer.rasterize(image).then(img => res.send(img));
-    } catch (e) {
-        res.status(404);
-    }
+    Wikipedia.fetchPageImage(req.params.title.replace(".png", "")).then(img => {
+        try {
+            rasterizer.rasterize(img).then(img => res.send(img));
+        } catch (e) {
+            res.sendStatus(404);
+        }
+    }).catch(err => {
+        res.sendStatus(404);
+    })
 });
 
-app.get("/wiki/random", async (req, res) => {
-    res.send(await Wikipedia.getRandomArticle());
-})
+
+app.get("/path/:from/:to", async (req, res) => {
+    res.sendFile(path.resolve(__dirname, "../../wiki-webapp/dist/index.html"));
+});
 
 app.use(express.static("../wiki-webapp/dist"));
 
